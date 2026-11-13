@@ -114,11 +114,18 @@
 
 ## 7. 播出流程与可靠性
 
-- **预览/播出分离**：控制台每个图文可「Preview（PVW）」→「TAKE（PGM）」→「OUT」。PVW 用 `?layers=` 参数隔离成独立输出。
-- **Rundown（播出单）**：赛前编排好图文顺序（开场队伍介绍、阵容、人名条…），现场按序点播。
-- **快捷键 / 硬件**：支持 Stream Deck、MIDI、X-Keys，减少操作员鼠标操作。
-- **主备**：两台播出机同时连接同一个 Core Server；Core Server 也可主备（状态持久化 + 重连拉快照）。
-- **操作审计**：所有指令记录日志，便于赛后复盘事故。
+M2 已实现以下能力（★ 为尚未实现）：
+
+- **PVW / PGM 双路**（`store.ts`）：`graphic.cue` 预备到 PVW，`graphic.take` 切到 PGM（不指定图层时一次切出全部预备项），`graphic.show` 直接上 PGM（热键、规则引擎使用）。输出页 `?channel=pvw|pgm` 各自独立，可分别接入两路键控或监视器。
+- **入/出场动画与图层状态机**（`apps/graphics/index.html`）：每个图层串行地「出场 → 换内容 → 入场」，数据刷新只重绘不重播；`takeId` 区分「数据更新」和「重新上屏」。模板规范见 [TEMPLATES.md](TEMPLATES.md)。
+- **播出单（Rundown）**：条目 = 名称 + 模板 + 图层 + 字段数据 + 单键热键。模板通过 `meta.fields` 声明字段，控制台据此生成表单，新增模板无需改控制台。编辑在播条目时只更新数据，不重播入场（实时字幕即依赖这一点）。
+- **热键**：空格 TAKE、回车 CUE 并选中下一条、↑↓ 选择、条目热键直接上/下屏、Esc 清 PVW、Shift+Esc 全部下屏；光标在输入框内时不生效；监视器不接收焦点，避免点一下画面热键就失效。
+- **外部控制**：`POST /api/command`，body 与 WebSocket 指令完全相同，Stream Deck（Bitfocus Companion 的 HTTP 动作）、脚本、其它系统都可调用。
+- **CasparCG**（`casparcg.ts`）：AMCP 客户端对每路输出发送 `PLAY ch-layer [HTML] "<url>"`，之后所有上下屏都在页面内完成，不走 AMCP 往返。配置变化只发送差异（PLAY / CLEAR），断线指数退避重连，CasparCG 重启后自动重新加载。
+- **持久化**（`persist.ts`）：配置、播出单、队伍资料写入 `data/runtime/livecg.json`（`LIVECG_DATA_DIR` 可改）；只有这些内容变化时才写盘，先写临时文件再改名防止断电损坏。比分、图层、实时数据不持久化。
+- ★ **主备**：两台播出机同时连接同一个 Core Server；Core Server 也可主备（状态持久化 + 重连拉快照）。
+- ★ **操作审计**：所有指令记录日志，便于赛后复盘事故。
+- ★ **MIDI / X-Keys** 原生支持（目前可经 Companion 转 HTTP）。
 
 ---
 
@@ -132,15 +139,17 @@ LiveCG/
 │   │   ├── src/delay-queue.ts        数据延迟缓冲
 │   │   ├── src/rules.ts              规则引擎（自动上/下屏）
 │   │   ├── src/sim/cs2-sim.ts        CS2 比赛模拟器
+│   │   ├── src/casparcg.ts           CasparCG AMCP 客户端
+│   │   ├── src/persist.ts            配置/播出单持久化
 │   │   ├── scripts/cs2-sim.ts        模拟器命令行（推送到服务端）
 │   │   └── test/                     node:test 回归测试
-│   ├── graphics/      图文输出页 + 模板（scorebug、player-bars、killfeed、round-summary、lower-third）
-│   └── control/       操作员控制台
+│   ├── graphics/      输出页（?channel=pgm|pvw）+ 模板（scorebug、player-bars、killfeed、round-summary、lower-third、caption）
+│   └── control/       操作员控制台（index.html + app.js：播出单、PVW/PGM、热键、CasparCG）
 ├── packages/
 │   └── shared/        共享类型与消息协议
 ├── integrations/
 │   └── cs2/           CS2 GSI 配置文件
-└── docs/              设计文档
+└── docs/              设计文档（ARCHITECTURE.md、TEMPLATES.md 模板开发规范）
 ```
 
 ---
@@ -151,7 +160,7 @@ LiveCG/
 |---|---|---|
 | **M0 骨架（已完成）** | Monorepo、状态中心、WebSocket、比分条/人名条模板、控制台、CS2 GSI 接入 | 可本地跑通「数据 → 状态 → 图文」全链路 |
 | **M1 CS2 完整包装（已完成，待真机验证）** | 阵营映射、事件推导、选手血量/经济条、击杀信息、回合结算、数据延迟缓冲、模拟器与回归测试 | 可用于一场 CS2 线上赛 |
-| M2 播出能力 | 模板 in/out 动画规范、PVW/PGM、Rundown、快捷键、CasparCG AMCP 控制 | 专业转播车可用 |
+| **M2 播出能力（已完成，CasparCG 待真机验证）** | 模板 in/out 动画规范、PVW/PGM、Rundown、快捷键与 HTTP 控制 API、CasparCG AMCP 控制、持久化 | 专业转播车可用 |
 | M3 传统体育 | 比赛时钟、计分器适配器、足球/篮球模板包、人工兜底 | 覆盖篮球/足球转播 |
 | M4 平台化 | React 控制台、持久化、多赛事/多房间、权限、模板市场/换皮、主备 | 可对外交付的产品 |
 | M5 增值 | ASR 实时字幕、AI 自动高光/数据卡、云端远程制作 | 差异化能力 |

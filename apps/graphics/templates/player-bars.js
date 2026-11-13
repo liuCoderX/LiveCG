@@ -1,6 +1,6 @@
 // CS2 选手血量 / 经济条：主队在左下，客队在右下
 // 按 steamid 增量更新 DOM，血条宽度走 CSS 过渡，不会被 10Hz 数据打断
-import { esc, ICON, money, setStyle, setText, teamColor } from "../lib/util.js";
+import { animate, esc, ICON, money, setStyle, setText, teamColor } from "../lib/util.js";
 
 const WEAPON_NAME = {
   ak47: "AK-47", m4a1_silencer: "M4A1-S", m4a1: "M4A4", awp: "AWP", famas: "FAMAS", galilar: "Galil", aug: "AUG", sg556: "SG 553",
@@ -9,7 +9,20 @@ const WEAPON_NAME = {
 };
 export const weaponLabel = (w) => (w ? WEAPON_NAME[w] ?? w.toUpperCase() : "");
 
+const slide = (el, dir) => {
+  const rows = (side) => el.querySelectorAll(`.pb-col.${side} > *`);
+  const from = { home: "translateX(-110%)", away: "translateX(110%)" };
+  const frames = (side) => (dir === "in" ? [{ transform: from[side], opacity: 0 }, { transform: "none", opacity: 1 }] : [{ transform: "none", opacity: 1 }, { transform: from[side], opacity: 0 }]);
+  const opts = dir === "in" ? { duration: 380, stagger: 45 } : { duration: 240, stagger: 25, easing: "ease-in" };
+  return Promise.all([animate(rows("home"), frames("home"), opts), animate(rows("away"), frames("away"), opts)]);
+};
+
 export default {
+  meta: { label: "选手血量/经济", layer: "player-bars", z: 20 },
+  // 入场：两侧逐行滑入；出场：逐行滑出
+  in: (el) => slide(el, "in"),
+  out: (el) => slide(el, "out"),
+
   css: `
     .pb-col { position: absolute; bottom: 40px; width: 430px; display: flex; flex-direction: column; gap: 4px; color: #fff; }
     .pb-col.home { left: 40px; }

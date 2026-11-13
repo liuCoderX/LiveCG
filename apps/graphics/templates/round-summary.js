@@ -1,10 +1,22 @@
 // 回合结算：回合结束由规则引擎自动上屏（也可手动 TAKE）
 // 内容：胜方 + 胜利方式、比分、本回合 MVP、双方击杀/伤害、下回合经济
-import { esc, money, teamColor } from "../lib/util.js";
+import { animate, esc, money, teamColor } from "../lib/util.js";
 
 const REASON = { elimination: "全歼对手", bomb: "炸弹爆炸", defuse: "成功拆包", time: "时间耗尽", unknown: "" };
 
 export default {
+  meta: { label: "回合结算", layer: "round-summary", z: 40 },
+
+  // 入场：面板放大淡入，胜方条从左擦出，三栏错峰上浮
+  async in(el) {
+    await Promise.all([
+      animate(el.querySelector(".rs"), [{ opacity: 0, transform: "translateX(-50%) scale(.92)" }, { opacity: 1, transform: "translateX(-50%) scale(1)" }], { duration: 380 }),
+      animate(el.querySelector(".rs-top"), [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 420, delay: 120 }),
+      animate(el.querySelectorAll(".rs-body > *"), [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "none" }], { delay: 250, stagger: 70 }),
+    ]);
+  },
+  out: (el) => animate(el.querySelector(".rs"), [{ opacity: 1, transform: "translateX(-50%) scale(1)" }, { opacity: 0, transform: "translateX(-50%) scale(.96)" }], { duration: 250, easing: "ease-in" }),
+
   css: `
     .rs { position: absolute; left: 50%; bottom: 300px; transform: translateX(-50%); width: 760px; color: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
     .rs-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: var(--c); color: #111; }

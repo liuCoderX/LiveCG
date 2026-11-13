@@ -43,6 +43,21 @@ export const ICON = {
   unknown: "",
 };
 
+/**
+ * 入/出场动画工具（Web Animations API，无第三方依赖）。
+ * 返回 Promise，所有元素动画完成后 resolve；stagger 为相邻元素的错峰毫秒数。
+ */
+export const animate = (targets, keyframes, { duration = 350, easing = "cubic-bezier(.2,.8,.2,1)", delay = 0, stagger = 0 } = {}) => {
+  const list = [].concat(targets instanceof NodeList ? [...targets] : targets).filter(Boolean);
+  return Promise.all(
+    list.map((node, i) => {
+      // 取消该元素上一轮由脚本创建的入/出场动画（保留 CSS 动画如闪烁），避免 fill 叠加
+      for (const a of node.getAnimations()) if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition)) a.cancel();
+      return node.animate(keyframes, { duration, easing, delay: delay + i * stagger, fill: "both" }).finished.catch(() => {});
+    }),
+  );
+};
+
 export const setStyle = (el, prop, v) => {
   if (el.style.getPropertyValue(prop) !== v) el.style.setProperty(prop, v);
 };

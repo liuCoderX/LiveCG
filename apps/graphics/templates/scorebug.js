@@ -1,8 +1,22 @@
 // 比分条：数据来自 match 状态（自动跟随 CS2 GSI 或手动比分）
 // CS2 下额外显示：阵营色、回合计时、炸弹状态、回合历史
-import { fmtClock, ICON, setStyle, setText, teamColor, SIDE_COLOR } from "../lib/util.js";
+import { animate, fmtClock, ICON, setStyle, setText, teamColor, SIDE_COLOR } from "../lib/util.js";
 
 export default {
+  meta: { label: "比分条", layer: "scorebug", z: 10 },
+
+  // 入场：主体从上方落下，地图/回合历史随后淡入；出场反向
+  async in(el) {
+    await Promise.all([
+      animate(el.querySelector(".sb-main"), [{ transform: "translateY(-140%)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 450 }),
+      animate([el.querySelector(".sb-map"), el.querySelector(".sb-history")], [{ opacity: 0 }, { opacity: 1 }], { delay: 250, stagger: 80 }),
+    ]);
+  },
+  async out(el) {
+    await animate([el.querySelector(".sb-history"), el.querySelector(".sb-map")], [{ opacity: 1 }, { opacity: 0 }], { duration: 150 });
+    await animate(el.querySelector(".sb-main"), [{ transform: "none", opacity: 1 }, { transform: "translateY(-140%)", opacity: 0 }], { duration: 300, easing: "ease-in" });
+  },
+
   css: `
     .scorebug { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; color: #fff; }
     .sb-main { display: flex; align-items: stretch; height: 60px; font-weight: 700; box-shadow: 0 8px 28px rgba(0,0,0,.4); }

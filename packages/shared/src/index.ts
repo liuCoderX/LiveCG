@@ -42,29 +42,80 @@ export interface GraphicLayer {
   template: string;
   visible: boolean;
   data: Record<string, unknown>;
+  /** 来源播出单条目（热键再次按下时据此判断是否「同一条」→ 下屏） */
+  itemId?: string;
+  /**
+   * 每次上屏（show / take）自增；仅数据更新（update）不变。
+   * 输出端据此区分「数据刷新」（只重绘）和「重新上屏」（先出场再入场）。
+   */
+  takeId: number;
+}
+
+/** PVW / PGM 两路输出 */
+export type Channel = "pgm" | "pvw";
+
+/** 播出单条目：预先编排好的一条图文 */
+export interface RundownItem {
+  id: string;
+  label: string;
+  layer: string;
+  template: string;
+  data: Record<string, unknown>;
+  /** 单键热键（1-9 / a-z），按下即直接上/下 PGM */
+  hotkey?: string;
+}
+
+export interface Rundown {
+  items: RundownItem[];
+  selectedId?: string;
 }
 
 export interface AppState {
   match: MatchState;
+  /** PGM：正在播出的图层 */
   layers: Record<string, GraphicLayer>;
+  /** PVW：已预备（CUE）、等待 TAKE 的图层 */
+  preview: Record<string, GraphicLayer>;
+  rundown: Rundown;
   config: AppConfig;
+  /** 外部播出设备状态（不持久化） */
+  outputs: OutputStatus;
   /** 单调递增版本号，便于客户端丢弃乱序消息 */
   rev: number;
 }
 
-/** 客户端 → 服务端 */
+type LayerData = Record<string, unknown>;
+
+/** 客户端 → 服务端（WebSocket 与 POST /api/command 共用） */
 export type ClientMessage =
   | { type: "hello"; role: "graphics" | "control"; name?: string }
-  | { type: "graphic.show"; layer: string; template: string; data?: Record<string, unknown> }
-  | { type: "graphic.update"; layer: string; data: Record<string, unknown> }
+  /** 直接上 PGM（规则引擎、热键使用） */
+  | { type: "graphic.show"; layer: string; template: string; data?: LayerData; itemId?: string }
+  /** 预备到 PVW */
+  | { type: "graphic.cue"; layer: string; template: string; data?: LayerData; itemId?: string }
+  /** PVW → PGM；不指定 layer 时把 PVW 上所有图层一起切出 */
+  | { type: "graphic.take"; layer?: string }
+  /** 刷新数据（不重新播放入场动画），默认作用于 PGM */
+  | { type: "graphic.update"; layer: string; data: LayerData; channel?: Channel }
   | { type: "graphic.hide"; layer: string }
   | { type: "graphic.clearAll" }
+  | { type: "preview.clear"; layer?: string }
+  | { type: "rundown.upsert"; item: Omit<RundownItem, "id"> & { id?: string } }
+  | { type: "rundown.remove"; id: string }
+  | { type: "rundown.move"; id: string; to: number }
+  | { type: "rundown.select"; id: string }
+  /** 把条目（默认当前选中）预备到 PVW，并把选中项移到下一条 */
+  | { type: "rundown.cue"; id?: string }
+  /** 热键：条目不在 PGM 则直接上屏，已在 PGM 则下屏 */
+  | { type: "rundown.fire"; id: string }
   | { type: "match.patch"; patch: DeepPartial<MatchState> }
   | { type: "config.set"; patch: DeepPartial<AppConfig> }
   /** 手动交换主客队与阵营的对应关系（自动识别失败时兜底） */
   | { type: "cs2.swapSides" }
   /** 换图/新比赛：清空已学习的阵容、回合历史、ADR 统计 */
-  | { type: "cs2.reset" };
+  | { type: "cs2.reset" }
+  /** 立即重连 CasparCG 并重新加载输出 */
+  | { type: "casparcg.reconnect" };
 
 /** 服务端 → 客户端 */
 export type ServerMessage =
@@ -72,7 +123,37 @@ export type ServerMessage =
   | { type: "event"; event: GameEvent }
   | { type: "error"; message: string };
 
-/** 运行时配置（控制台可改） */
+/** CasparCG 上的一路 HTML 输出 */
+export interface CasparOutput {
+  id: string;
+  label: string;
+  channel: number;
+  layer: number;
+  source: Channel;
+  enabled: boolean;
+}
+
+export interface CasparConfig {
+  enabled: boolean;
+  host: string;
+  /** AMCP 端口，默认 5250 */
+  port: number;
+  /** CasparCG 访问 LiveCG 的地址（CasparCG 在另一台机器时不能用 localhost） */
+  baseUrl: string;
+  outputs: CasparOutput[];
+}
+
+export interface OutputStatus {
+  casparcg: {
+    status: "disabled" | "connecting" | "connected" | "error";
+    message?: string;
+    version?: string;
+    /** 已在 CasparCG 上加载的输出 id */
+    loaded: string[];
+  };
+}
+
+/** 运行时配置（控制台可改，持久化到磁盘） */
 export interface AppConfig {
   /** CS2 数据延迟（毫秒），与视频播出延迟对齐 */
   cs2DelayMs: number;
@@ -82,6 +163,17 @@ export interface AppConfig {
     /** 回合结算停留时长（毫秒） */
     roundSummaryMs: number;
   };
+  casparcg: CasparConfig;
+}
+
+/** 模板元数据：控制台据此生成播出单编辑表单，输出端据此决定叠放顺序 */
+export interface TemplateMeta {
+  label: string;
+  /** 默认图层名 */
+  layer: string;
+  /** 叠放顺序，越大越靠上 */
+  z: number;
+  fields?: Array<{ key: string; label: string; type: "text" | "textarea" | "number"; placeholder?: string }>;
 }
 
 // ───────────────────────── CS2 ─────────────────────────

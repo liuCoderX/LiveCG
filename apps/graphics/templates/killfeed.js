@@ -5,6 +5,8 @@ import { weaponLabel } from "./player-bars.js";
 const TTL = 7000;
 
 export default {
+  meta: { label: "击杀信息", layer: "killfeed", z: 30 },
+
   css: `
     .kf { position: absolute; top: 36px; right: 40px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .kf-item { display: flex; align-items: center; gap: 10px; padding: 6px 14px; background: rgba(12,14,20,.86); color: #fff; font-size: 18px; font-weight: 700;
