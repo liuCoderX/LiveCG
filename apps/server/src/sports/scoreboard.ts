@@ -108,7 +108,8 @@ export class ScoreboardInput {
     this.sock = undefined;
     if (!cfg.enabled) return this.setStatus({ status: "disabled", message: undefined, lastAt: undefined });
 
-    const sock = createSocket({ type: "udp4", reuseAddr: true });
+    // 不开 reuseAddr：否则两个房间可以同时绑定同一端口，数据包会被随机分给其中一个
+    const sock = createSocket({ type: "udp4" });
     this.sock = sock;
     sock.on("message", (buf) => this.onPacket(buf.toString("utf8")));
     sock.on("error", (err) => {

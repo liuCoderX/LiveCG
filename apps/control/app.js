@@ -1,4 +1,4 @@
-import { connect } from "/graphics/lib/livecg-client.js";
+import { connect, currentRoom } from "/graphics/lib/livecg-client.js";
 import { initSports } from "./sports.js";
 
 const $ = (id) => document.getElementById(id);
@@ -30,12 +30,42 @@ function toast(msg) {
   toastTimer = setTimeout(() => ($("toast").style.display = "none"), 5000);
 }
 
+const ROOM = currentRoom();
+
+// 监视器加载本房间的输出页
+for (const f of document.querySelectorAll("iframe[data-channel]")) {
+  f.src = `/graphics/?room=${encodeURIComponent(ROOM)}&channel=${f.dataset.channel}${f.dataset.params ?? ""}`;
+}
+
+for (const el of document.querySelectorAll(".room-id")) el.textContent = ROOM;
+
+// 房间切换：下拉列出所有房间，切换即跳转（每个房间是独立的控制台页面）
+async function loadRooms() {
+  try {
+    const rooms = await fetch("/api/rooms").then((r) => r.json());
+    const sel = $("roomSel");
+    const html = rooms.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}${r.id === "default" ? "" : `（${esc(r.id)}）`}</option>`).join("");
+    if (sel.innerHTML !== html) sel.innerHTML = html;
+    sel.value = ROOM;
+    $("roomGone").style.display = rooms.some((r) => r.id === ROOM) ? "none" : "block";
+  } catch {}
+}
+$("roomSel").addEventListener("change", (e) => {
+  const u = new URL(location.href);
+  u.searchParams.set("room", e.target.value);
+  location.href = u.toString();
+});
+loadRooms();
+setInterval(loadRooms, 5000);
+
 const client = connect({
   role: "control",
+  room: ROOM,
   onState: render,
   onEvent: logEvent,
   onError: toast,
-  onConnection(ok) {
+  onConnection(ok, reason) {
+    if (reason === "room-gone") $("roomGone").style.display = "block";
     $("connDot").className = `dot ${ok ? "ok" : "err"}`;
     if (!ok) $("conn").textContent = "连接断开，正在重连…";
   },
@@ -67,6 +97,8 @@ const changed = (key, value) => {
 
 function render(s) {
   state = s;
+  if (document.title !== `${s.room.name} · LiveCG 控制台`) document.title = `${s.room.name} · LiveCG 控制台`;
+  $("roomGone").style.display = "none";
   $("conn").textContent = `已连接 · rev ${s.rev} · ${s.match.sport}`;
   renderRundown(s);
   renderOnAir(s);

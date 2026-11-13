@@ -7,6 +7,7 @@ import type {
   GraphicLayer,
   MatchState,
   OutputStatus,
+  RoomInfo,
   Rundown,
   RundownItem,
 } from "@livecg/shared";
@@ -69,7 +70,10 @@ export function defaultRundown(): Rundown {
   return { items, selectedId: items[0].id };
 }
 
+export const DEFAULT_ROOM: RoomInfo = { id: "default", name: "默认房间" };
+
 export interface StoreSeed {
+  room?: RoomInfo;
   config?: DeepPartial<AppConfig>;
   rundown?: Rundown;
   match?: DeepPartial<MatchState>;
@@ -85,6 +89,7 @@ export class Store {
 
   constructor(seed: StoreSeed = {}) {
     this.state = {
+      room: seed.room ?? DEFAULT_ROOM,
       match: seed.match ? deepMerge(initialMatch, seed.match) : initialMatch,
       layers: {},
       preview: {},
@@ -111,6 +116,10 @@ export class Store {
   /** 整体替换比赛状态（换项目时需要丢掉上一个项目的 extra，deepMerge 做不到） */
   setMatch(fn: (m: MatchState) => MatchState): void {
     this.commit({ ...this.state, match: fn(this.state.match) });
+  }
+
+  setRoom(room: RoomInfo): void {
+    this.commit({ ...this.state, room });
   }
 
   setOutputs(patch: DeepPartial<OutputStatus>): void {

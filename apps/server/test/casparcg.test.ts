@@ -58,7 +58,7 @@ test("connects, reads version and loads the enabled outputs", async () => {
     await until(() => store.get().outputs.casparcg.version === "2.4.0 test");
     assert.equal(store.get().outputs.casparcg.status, "connected");
     await until(() => fake.lines.some((l) => l.startsWith("PLAY")));
-    assert.ok(fake.lines.includes('PLAY 1-20 [HTML] "http://10.0.0.5:3000/graphics/?channel=pgm"'));
+    assert.ok(fake.lines.includes('PLAY 1-20 [HTML] "http://10.0.0.5:3000/graphics/?room=default&channel=pgm"'));
     assert.ok(!fake.lines.some((l) => l.includes("channel=pvw")), "disabled PVW output is not loaded");
     assert.deepEqual(store.get().outputs.casparcg.loaded, ["pgm"]);
   } finally {
@@ -79,8 +79,8 @@ test("config changes only send the difference (enable PVW, move PGM layer)", asy
     await until(() => fake.lines.length >= 3);
     assert.deepEqual(fake.lines.sort(), [
       "CLEAR 1-20",
-      'PLAY 1-30 [HTML] "http://10.0.0.5:3000/graphics/?channel=pgm"',
-      'PLAY 2-20 [HTML] "http://10.0.0.5:3000/graphics/?channel=pvw"',
+      'PLAY 1-30 [HTML] "http://10.0.0.5:3000/graphics/?room=default&channel=pgm"',
+      'PLAY 2-20 [HTML] "http://10.0.0.5:3000/graphics/?room=default&channel=pvw"',
     ]);
     // 无关的状态变化不应产生任何 AMCP 指令
     fake.lines.length = 0;

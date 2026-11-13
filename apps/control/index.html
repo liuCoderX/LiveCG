@@ -108,17 +108,24 @@
   table.bb .poss.on { background: #ffd166; color: #111; border-color: #ffd166; }
   input[type=color] { width: 36px; height: 32px; padding: 2px; flex: none !important; }
 
+  .room-switch select { font-weight: 700; max-width: 220px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #roomGone { background: var(--live); color: #fff; padding: 8px 20px; font-weight: 700; display: none; }
+
   #toast { position: fixed; right: 20px; bottom: 20px; max-width: 420px; background: #3a1d1f; border: 1px solid var(--live); color: #ffd6d6; padding: 10px 14px; border-radius: 8px; display: none; z-index: 20; }
 </style>
 </head>
 <body>
 <header>
   <h1>LiveCG 控制台</h1>
+  <label class="room-switch"><span class="sr-only">房间</span><select id="roomSel" aria-label="切换房间"></select></label>
+  <a href="/control/rooms.html" class="hint" style="margin:0">房间管理</a>
   <span class="dot" id="connDot"></span><span id="conn" class="hint" style="margin:0">连接中…</span>
   <span class="spacer"></span>
   <span class="alert-chip" id="sbAlert" hidden>计分器掉线</span>
   <span class="dot" id="casparDot"></span><span id="casparChip" class="hint" style="margin:0">CasparCG 未启用</span>
 </header>
+<div id="roomGone" role="alert">这个房间不存在或已被删除。<a href="/control/rooms.html" style="color:#fff">去房间管理</a></div>
 
 <main>
   <!-- 左：播出单 -->
@@ -154,14 +161,14 @@
   <div class="col">
     <section>
       <h2>PVW 预监 <span class="grow"></span><button class="sm" id="clearPvw">清空 PVW</button></h2>
-      <div class="monitor pvw" id="pvwMon"><span class="tag pvw badge">PVW</span><iframe src="/graphics/?channel=pvw&preview&safe" title="PVW 预监" tabindex="-1"></iframe></div>
+      <div class="monitor pvw" id="pvwMon"><span class="tag pvw badge">PVW</span><iframe data-channel="pvw" data-params="&preview&safe" title="PVW 预监" tabindex="-1"></iframe></div>
       <div class="switcher">
         <button class="take" id="take">TAKE</button>
         <button class="cue" id="cueSelected">CUE 选中项</button>
         <span class="hint" style="margin:0">空格 = TAKE · 回车 = CUE</span>
       </div>
       <h2>PGM 播出 <span class="grow"></span><button class="sm danger" id="clearAll">全部下屏</button></h2>
-      <div class="monitor pgm" id="pgmMon"><span class="tag pgm badge">PGM</span><iframe src="/graphics/?channel=pgm&preview" title="PGM 播出" tabindex="-1"></iframe></div>
+      <div class="monitor pgm" id="pgmMon"><span class="tag pgm badge">PGM</span><iframe data-channel="pgm" data-params="&preview" title="PGM 播出" tabindex="-1"></iframe></div>
     </section>
 
     <section>
@@ -180,7 +187,7 @@
         <kbd>Shift + Esc</kbd><span>PGM 全部下屏</span>
         <kbd>Shift + 空格</kbd><span>比赛时钟 开始 / 停止</span>
       </div>
-      <p class="hint">光标在输入框内时热键不生效。外部设备（Stream Deck / Companion）可调用 <code>POST /api/command</code>。</p>
+      <p class="hint">光标在输入框内时热键不生效。外部设备（Stream Deck / Companion）可调用 <code>POST /api/rooms/<span class="room-id"></span>/command</code>。</p>
     </section>
   </div>
 
@@ -332,7 +339,7 @@
           </table>
           <button type="submit" class="primary">保存并应用</button>
         </form>
-        <p class="hint">CasparCG 以 HTML producer 加载输出页（<code>PLAY ch-layer [HTML] "…/graphics/?channel=pgm"</code>），断线重连后会自动重新加载。</p>
+        <p class="hint">CasparCG 以 HTML producer 加载输出页（<code>PLAY ch-layer [HTML] "…/graphics/?room=<span class="room-id"></span>&amp;channel=pgm"</code>），断线重连后会自动重新加载。</p>
       </section>
 
       <section>

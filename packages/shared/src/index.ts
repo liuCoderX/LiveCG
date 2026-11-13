@@ -77,7 +77,30 @@ export interface Rundown {
   selectedId?: string;
 }
 
+/** 房间：一场独立的赛事（独立的比分、播出单、输出、数据接入） */
+export interface RoomInfo {
+  /** URL 中使用的标识：小写字母、数字、连字符 */
+  id: string;
+  name: string;
+}
+
+/** 房间列表上的实时摘要（GET /api/rooms） */
+export interface RoomSummary extends RoomInfo {
+  sport: string;
+  period: string;
+  home: { name: string; score: number };
+  away: { name: string; score: number };
+  /** PGM 上正在播出的图层数 */
+  onAir: number;
+  clients: { control: number; graphics: number };
+  casparcg: OutputStatus["casparcg"]["status"];
+  scoreboard: OutputStatus["scoreboard"]["status"];
+  /** 最近一次收到 CS2 数据的时间 */
+  cs2LastFrameAt?: number;
+}
+
 export interface AppState {
+  room: RoomInfo;
   match: MatchState;
   /** PGM：正在播出的图层 */
   layers: Record<string, GraphicLayer>;

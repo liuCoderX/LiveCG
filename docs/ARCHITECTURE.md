@@ -130,12 +130,23 @@ M2 已实现以下能力（★ 为尚未实现）：
 - **热键**：空格 TAKE、回车 CUE 并选中下一条、↑↓ 选择、条目热键直接上/下屏、Esc 清 PVW、Shift+Esc 全部下屏；光标在输入框内时不生效；监视器不接收焦点，避免点一下画面热键就失效。
 - **外部控制**：`POST /api/command`，body 与 WebSocket 指令完全相同，Stream Deck（Bitfocus Companion 的 HTTP 动作）、脚本、其它系统都可调用。
 - **CasparCG**（`casparcg.ts`）：AMCP 客户端对每路输出发送 `PLAY ch-layer [HTML] "<url>"`，之后所有上下屏都在页面内完成，不走 AMCP 往返。配置变化只发送差异（PLAY / CLEAR），断线指数退避重连，CasparCG 重启后自动重新加载。
-- **持久化**（`persist.ts`）：配置、播出单、队伍资料写入 `data/runtime/livecg.json`（`LIVECG_DATA_DIR` 可改）；只有这些内容变化时才写盘，先写临时文件再改名防止断电损坏。比分、图层、实时数据不持久化。
+- **持久化**（`persist.ts`）：配置、播出单、队伍资料按房间写入 `data/runtime/rooms/<房间>.json`（`LIVECG_DATA_DIR` 可改）；新房间创建后立即落盘；只有这些内容变化时才写盘，先写临时文件再改名防止断电损坏。比分、图层、实时数据不持久化。
 - ★ **主备**：两台播出机同时连接同一个 Core Server；Core Server 也可主备（状态持久化 + 重连拉快照）。
 - ★ **操作审计**：所有指令记录日志，便于赛后复盘事故。
 - ★ **MIDI / X-Keys** 原生支持（目前可经 Companion 转 HTTP）。
 
 ---
+
+## 7.5 多房间（M4）
+
+一台服务同时承载多场比赛。**房间 = 一组完整、互不共享的服务实例**（`room.ts`）：Store、CS2 适配器与延迟队列、规则引擎、体育控制器、计分器 UDP 输入、CasparCG 连接、持久化文件。房间之间没有任何共享的可变状态，一个房间的故障或误操作不会波及其它房间。
+
+- **寻址**：所有入口带房间标识——`/ws?room=`、`/graphics/?room=`、`/control/?room=`、`/gsi/cs2/<房间>`、`/api/rooms/<房间>/command|state`。不带房间时指向 `default`，旧版本的地址全部继续有效。
+- **广播隔离**：WebSocket 连接按房间登记，状态和事件只发给本房间的客户端；房间被删除时用关闭码 4404 断开其客户端，控制台显示「房间已删除」。
+- **跨房间冲突检查**（`rooms.ts`）：设备配置变更前检查计分器 UDP 端口、CasparCG「主机:端口/通道-层」是否已被其它房间（或本房间另一路输出）占用，冲突直接拒绝。计分器 UDP 不再开 `reuseAddr`，即使绕过检查也会绑定失败而不是静默分流。
+- **管理**：`GET/POST /api/rooms`、`PATCH/DELETE /api/rooms/<房间>`；创建时可复制已有房间（深拷贝播出单、配置、队伍资料，关闭设备连接）；删除需先全部下屏，文件改名保留；默认房间不能删除。
+- **迁移**：启动时如发现单房间版本的 `livecg.json` 且尚无默认房间文件，自动迁移为默认房间。
+- **服务结构**：`app.ts` 的 `createApp()` 组装 HTTP / WebSocket / 房间管理，`index.ts` 只负责读取环境变量和启动；测试可在随机端口起完整服务做集成测试。
 
 ## 8. 目录结构（当前）
 
@@ -148,13 +159,16 @@ LiveCG/
 │   │   ├── src/rules.ts              规则引擎（自动上/下屏）
 │   │   ├── src/sim/cs2-sim.ts        CS2 比赛模拟器
 │   │   ├── src/casparcg.ts           CasparCG AMCP 客户端
-│   │   ├── src/persist.ts            配置/播出单持久化
+│   │   ├── src/app.ts                HTTP / WebSocket 路由（按房间分发）
+│   │   ├── src/rooms.ts              房间管理：创建/改名/删除/迁移、设备冲突检查
+│   │   ├── src/room.ts               单个房间的全部服务实例
+│   │   ├── src/persist.ts            配置/播出单持久化（每房间一个文件）
 │   │   ├── src/sports/               传统体育：时钟、赛制预设、控制器、计分器 UDP 输入
 │   │   ├── scripts/scoreboard-sim.ts 计分器模拟器（UDP）
 │   │   ├── scripts/cs2-sim.ts        模拟器命令行（推送到服务端）
 │   │   └── test/                     node:test 回归测试
 │   ├── graphics/      输出页（?channel=pgm|pvw）+ 模板（CS2：scorebug、player-bars、killfeed、round-summary；通用：lower-third、caption、lineup；传统体育：football-scorebug、basketball-scorebug、match-event）
-│   └── control/       操作员控制台（index.html + app.js：播出单、PVW/PGM、热键、CasparCG）
+│   └── control/       操作员控制台（index.html + app.js + sports.js）与房间管理页（rooms.html）
 ├── packages/
 │   └── shared/        共享类型与消息协议
 ├── integrations/
@@ -172,5 +186,6 @@ LiveCG/
 | **M1 CS2 完整包装（已完成，待真机验证）** | 阵营映射、事件推导、选手血量/经济条、击杀信息、回合结算、数据延迟缓冲、模拟器与回归测试 | 可用于一场 CS2 线上赛 |
 | **M2 播出能力（已完成，CasparCG 待真机验证）** | 模板 in/out 动画规范、PVW/PGM、Rundown、快捷键与 HTTP 控制 API、CasparCG AMCP 控制、持久化 | 专业转播车可用 |
 | **M3 传统体育（已完成，计分器待真机联调）** | 服务端时钟、足球/篮球赛制、足球事件、通用计分器 UDP 输入与掉线兜底、足球/篮球比分条、事件条、首发名单 | 覆盖篮球/足球转播 |
-| M4 平台化 | React 控制台、持久化、多赛事/多房间、权限、模板市场/换皮、主备 | 可对外交付的产品 |
+| **M4a 多房间（已完成）** | 一台服务多场比赛、房间管理页、跨房间设备冲突检查、单房间数据迁移 | 同时转播多场 |
+| M4b 平台化（待做） | 登录与权限、操作审计、主备容灾、React 控制台、模板换皮 | 可对外交付的产品 |
 | M5 增值 | ASR 实时字幕、AI 自动高光/数据卡、云端远程制作 | 差异化能力 |
