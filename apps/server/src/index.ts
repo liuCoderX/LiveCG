@@ -10,6 +10,9 @@ import { DelayQueue } from "./delay-queue.ts";
 import { createRules } from "./rules.ts";
 import { loadSeed, persistTo } from "./persist.ts";
 import { CasparClient } from "./casparcg.ts";
+import { isSportsMessage, SportsController } from "./sports/controller.ts";
+import { ScoreboardInput } from "./sports/scoreboard.ts";
+import { PRESETS, periodAt } from "./sports/presets.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const CS2_GSI_TOKEN = process.env.CS2_GSI_TOKEN ?? "change-me";
@@ -37,13 +40,19 @@ const cs2Delay = new DelayQueue(() => store.get().config.cs2DelayMs);
 const rules = createRules(store);
 const caspar = new CasparClient(store);
 
+/** 所有数据源推导出的事件：先给规则引擎，再广播给控制台/模板 */
+function emit(event: GameEvent): void {
+  rules(event);
+  broadcastEvent(event);
+}
+
+const sports = new SportsController(store, emit);
+const scoreboard = new ScoreboardInput(store, (i) => (sports.preset ? periodAt(sports.preset, i) : undefined));
+
 function applyIngest(result: IngestResult | null): void {
   if (!result) return;
   store.patchMatch(result.patch);
-  for (const event of result.events) {
-    rules(event);
-    broadcastEvent(event);
-  }
+  for (const event of result.events) emit(event);
 }
 
 /** 所有控制指令的唯一入口：WebSocket、HTTP API、热键设备都走这里 */
@@ -60,6 +69,7 @@ function handleCommand(msg: ClientMessage): void {
     case "casparcg.reconnect":
       return caspar.reconnect();
     default:
+      if (isSportsMessage(msg)) return sports.handle(msg);
       return store.dispatch(msg);
   }
 }
@@ -123,6 +133,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true, rev: store.get().rev });
     }
     if (req.method === "GET" && url === "/api/state") return json(res, 200, store.get());
+    if (req.method === "GET" && url === "/api/presets") return json(res, 200, Object.values(PRESETS));
     if (req.method === "GET" && url === "/api/templates") {
       const files = await readdir(join(staticRoots["/graphics/"], "templates"));
       return json(res, 200, files.filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3)).sort());
@@ -161,6 +172,7 @@ store.subscribe((state) => {
 });
 
 caspar.start();
+scoreboard.start();
 
 server.listen(PORT, () => {
   console.log(`[livecg] server on http://localhost:${PORT}`);
@@ -176,6 +188,8 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopPersist();
     caspar.stop();
+    scoreboard.stop();
+    sports.dispose();
     process.exit(0);
   });
 }

@@ -12,6 +12,7 @@
     "start": "pnpm --filter @livecg/server start",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --if-present test",
-    "sim:cs2": "pnpm --filter @livecg/server sim:cs2"
+    "sim:cs2": "pnpm --filter @livecg/server sim:cs2",
+    "sim:scoreboard": "pnpm --filter @livecg/server sim:scoreboard"
   }
 }

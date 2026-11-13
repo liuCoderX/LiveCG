@@ -13,8 +13,8 @@
   header h1 { font-size: 16px; margin: 0; }
   header .spacer { flex: 1; }
   main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.35fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; align-items: start; }
-  @media (max-width: 1400px) { main { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); } .col-c { grid-column: 1 / -1; display: grid !important; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); } }
-  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; } .col-c { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 1400px) { main { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); } .col-c { grid-column: 1 / -1; } }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; } }
   .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
@@ -77,6 +77,37 @@
   #log { list-style: none; margin: 0; padding: 0; font-size: 13px; max-height: 240px; overflow: auto; }
   #log li { padding: 4px 0; border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
   #log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* 标签页 */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); padding: 8px 14px; }
+  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .tabpanel { display: flex; flex-direction: column; gap: 16px; }
+  .tabpanel[hidden], section[hidden], .row[hidden] { display: none; }
+  .alert-chip { background: var(--live); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 4px; animation: blink 1s steps(2) infinite; }
+  .alert-chip[hidden] { display: none; }
+  @keyframes blink { 50% { opacity: .55; } }
+
+  /* 体育面板 */
+  .period-row { justify-content: center; }
+  .period-label { min-width: 8em; text-align: center; font-size: 18px; font-weight: 700; }
+  .clock-readout { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 4px 0 12px; font-variant-numeric: tabular-nums; }
+  #clockReadout { font-size: 48px; font-weight: 800; letter-spacing: .02em; }
+  #clockReadout.running { color: #7ee2a8; }
+  .clock-readout .shot { font-size: 30px; font-weight: 800; color: #ffd166; background: #0f1115; border-radius: 6px; padding: 2px 12px; }
+  .clock-readout .shot.low { color: #fff; background: var(--live); }
+  .clock-btn { min-width: 96px; }
+  .clock-btn.stop { background: #2a2f38; border-color: var(--live); color: #ffb4b4; }
+  .evlist { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto; }
+  .evlist li { display: grid; grid-template-columns: 52px 64px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 8px; background: var(--panel-2); border-radius: 6px; font-size: 13px; }
+  .evlist li .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.bb { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.bb th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px; }
+  table.bb td { padding: 4px; white-space: nowrap; }
+  table.bb td b { display: inline-block; min-width: 2em; text-align: center; font-size: 16px; }
+  table.bb button { padding: 2px 10px; }
+  table.bb .poss.on { background: #ffd166; color: #111; border-color: #ffd166; }
+  input[type=color] { width: 36px; height: 32px; padding: 2px; flex: none !important; }
+
   #toast { position: fixed; right: 20px; bottom: 20px; max-width: 420px; background: #3a1d1f; border: 1px solid var(--live); color: #ffd6d6; padding: 10px 14px; border-radius: 8px; display: none; z-index: 20; }
 </style>
 </head>
@@ -85,6 +116,7 @@
   <h1>LiveCG 控制台</h1>
   <span class="dot" id="connDot"></span><span id="conn" class="hint" style="margin:0">连接中…</span>
   <span class="spacer"></span>
+  <span class="alert-chip" id="sbAlert" hidden>计分器掉线</span>
   <span class="dot" id="casparDot"></span><span id="casparChip" class="hint" style="margin:0">CasparCG 未启用</span>
 </header>
 
@@ -146,58 +178,175 @@
         <kbd>1–9 / A–Z</kbd><span>条目热键：直接上屏，再按一次下屏</span>
         <kbd>Esc</kbd><span>清空 PVW</span>
         <kbd>Shift + Esc</kbd><span>PGM 全部下屏</span>
+        <kbd>Shift + 空格</kbd><span>比赛时钟 开始 / 停止</span>
       </div>
       <p class="hint">光标在输入框内时热键不生效。外部设备（Stream Deck / Companion）可调用 <code>POST /api/command</code>。</p>
     </section>
   </div>
 
-  <!-- 右：赛况 / CS2 / CasparCG / 事件 -->
+  <!-- 右：标签页 赛况 / CS2 / 设备 / 事件 -->
   <div class="col col-c">
-    <section>
-      <h2>比分 / 赛况</h2>
-      <div class="row"><input id="homeName" placeholder="主队简称" aria-label="主队简称"><input class="num" id="homeScore" type="number" aria-label="主队比分"><button data-score="home:1">+1</button><button data-score="home:-1">−1</button></div>
-      <div class="row"><input id="awayName" placeholder="客队简称" aria-label="客队简称"><input class="num" id="awayScore" type="number" aria-label="客队比分"><button data-score="away:1">+1</button><button data-score="away:-1">−1</button></div>
-      <div class="row"><input id="period" placeholder="局/节/半场，例如 R12 / Q3" aria-label="局/节"><button class="primary" id="applyMatch">应用</button></div>
-      <p class="hint">接入 CS2 后比分、回合由数据自动驱动；队名用于识别阵营时需与服务器 mp_teamname 一致。</p>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="面板">
+      <button role="tab" data-tab="match" aria-selected="true">赛况</button>
+      <button role="tab" data-tab="cs2">CS2</button>
+      <button role="tab" data-tab="devices">设备</button>
+      <button role="tab" data-tab="events">事件</button>
+    </nav>
 
-    <section>
-      <h2><span class="dot" id="gsiDot"></span>CS2 数据</h2>
-      <dl class="kv">
-        <dt>地图</dt><dd id="csMap">—</dd><dt>回合</dt><dd id="csRound">—</dd>
-        <dt>阶段</dt><dd id="csPhase">—</dd><dt>炸弹</dt><dd id="csBomb">—</dd>
-        <dt>主队阵营</dt><dd id="csSide">—</dd><dt>最近数据</dt><dd id="csAge">—</dd>
-      </dl>
-      <div class="row"><label for="delay">数据延迟 (ms)</label><input class="num" id="delay" type="number" min="0" step="500"><button id="applyDelay">应用</button></div>
-      <div class="row"><input type="checkbox" id="autoSummary"><label for="autoSummary">回合结束自动弹出结算</label><input class="num" id="summaryMs" type="number" min="1000" step="500" aria-label="结算停留毫秒"><label for="summaryMs">ms</label></div>
-      <div class="row">
-        <button id="swapSides">交换主客队阵营</button>
-        <button id="resetCs2" class="danger">重置（换图/新比赛）</button>
-      </div>
-    </section>
+    <div class="tabpanel" data-panel="match">
+      <section>
+        <h2>比赛设置</h2>
+        <div class="row"><select id="presetSel" aria-label="赛制" style="flex:1"></select><button id="setupMatch" class="primary">开始新比赛</button></div>
+        <div class="row period-row">
+          <button id="periodPrev" aria-label="上一节">◀</button>
+          <span id="periodLabel" class="period-label">未开始</span>
+          <button id="periodNext" aria-label="下一节">▶</button>
+        </div>
+        <p class="hint">「开始新比赛」会清零比分、时钟、犯规/暂停和事件，队名保留。</p>
+      </section>
 
-    <section>
-      <h2><span class="dot" id="casparDot2"></span>CasparCG <span class="grow"></span><button class="sm" id="casparReconnect">重连</button></h2>
-      <dl class="kv">
-        <dt>状态</dt><dd id="cgStatus">—</dd><dt>版本</dt><dd id="cgVersion">—</dd>
-        <dt>已加载</dt><dd id="cgLoaded">—</dd><dt>信息</dt><dd id="cgMessage" title="">—</dd>
-      </dl>
-      <form id="casparForm" autocomplete="off">
-        <div class="row"><label><input type="checkbox" name="enabled"> 启用</label><input name="host" placeholder="CasparCG 地址" aria-label="CasparCG 地址"><input class="num" name="port" type="number" aria-label="AMCP 端口"></div>
-        <label class="field">LiveCG 地址（CasparCG 访问本服务用，跨机器时不能填 localhost）<input name="baseUrl"></label>
-        <table class="outputs">
-          <thead><tr><th>启用</th><th>输出</th><th>通道</th><th>层</th><th>信号</th></tr></thead>
-          <tbody id="cgOutputs"></tbody>
+      <section id="clockPanel" hidden>
+        <h2>比赛时钟 <span class="grow"></span><span class="tag" id="clockSourceTag">内部时钟</span></h2>
+        <div class="clock-readout">
+          <span id="clockReadout">--:--</span>
+          <span id="shotReadout" class="shot" hidden>24</span>
+        </div>
+        <div class="row">
+          <button id="clockToggle" class="take clock-btn">开始</button>
+          <input id="clockSetInput" placeholder="mm:ss.t" aria-label="设置时钟" style="flex:1">
+          <button id="clockSet">设置</button>
+        </div>
+        <div class="row" id="clockAdjust"></div>
+        <div class="row" id="shotRow" hidden>
+          <span class="hint" style="margin:0">进攻时钟</span>
+          <button data-shot="24000" class="primary">24</button>
+          <button data-shot="14000">14</button>
+        </div>
+        <div class="row" id="addedRow" hidden>
+          <label for="addedInput">补时（分钟）</label><input id="addedInput" class="num" type="number" min="0" max="30"><button id="addedSet">公布</button>
+        </div>
+        <p class="hint">Shift + 空格 = 开始/停止。时钟由服务端统一计时，所有画面和控制台同步。</p>
+      </section>
+
+      <section id="footballPanel" hidden>
+        <h2>足球事件</h2>
+        <form id="fbForm" autocomplete="off">
+          <div class="row">
+            <select name="type" aria-label="事件类型">
+              <option value="goal">进球</option><option value="penaltyGoal">点球</option><option value="ownGoal">乌龙球</option>
+              <option value="yellow">黄牌</option><option value="red">红牌</option><option value="sub">换人</option>
+            </select>
+            <select name="team" aria-label="球队"><option value="home">主队</option><option value="away">客队</option></select>
+            <input name="minute" class="num" placeholder="自动" aria-label="时间（留空按时钟）">
+          </div>
+          <div class="row"><input name="player" placeholder="球员（换人时为换上球员）" aria-label="球员" required></div>
+          <div class="row" id="fbOutRow" hidden><input name="playerOut" placeholder="换下球员" aria-label="换下球员"></div>
+          <div class="row"><button type="submit" class="primary">记录事件</button><span class="hint" style="margin:0" id="fbHint">乌龙球的「球队」选得分方</span></div>
+        </form>
+        <ul id="fbEvents" class="evlist"></ul>
+      </section>
+
+      <section id="basketballPanel" hidden>
+        <h2>篮球</h2>
+        <table class="bb">
+          <thead><tr><th></th><th>全队犯规</th><th>剩余暂停</th><th>球权</th></tr></thead>
+          <tbody>
+            <tr data-team="home"><th class="tn"></th>
+              <td><button data-bb="foul:-1">−</button><b class="fouls"></b><button data-bb="foul:1">+</button></td>
+              <td><button data-bb="timeout:-1">−</button><b class="tos"></b><button data-bb="timeout:1">+</button></td>
+              <td><button data-poss="home" class="poss">◀</button></td></tr>
+            <tr data-team="away"><th class="tn"></th>
+              <td><button data-bb="foul:-1">−</button><b class="fouls"></b><button data-bb="foul:1">+</button></td>
+              <td><button data-bb="timeout:-1">−</button><b class="tos"></b><button data-bb="timeout:1">+</button></td>
+              <td><button data-poss="away" class="poss">▶</button></td></tr>
+          </tbody>
         </table>
-        <button type="submit" class="primary">保存并应用</button>
-      </form>
-      <p class="hint">CasparCG 以 HTML producer 加载输出页（<code>PLAY ch-layer [HTML] "…/graphics/?channel=pgm"</code>），断线重连后会自动重新加载。</p>
-    </section>
+        <p class="hint">犯规达到罚球线时比分条显示红色。比分用上方「比分 / 赛况」或下面的快捷加分。</p>
+        <div class="row">
+          <span class="hint" style="margin:0;min-width:3em" id="bbHomeName">主队</span>
+          <button data-pts="home:1">+1</button><button data-pts="home:2">+2</button><button data-pts="home:3">+3</button><button data-pts="home:-1">−1</button>
+        </div>
+        <div class="row">
+          <span class="hint" style="margin:0;min-width:3em" id="bbAwayName">客队</span>
+          <button data-pts="away:1">+1</button><button data-pts="away:2">+2</button><button data-pts="away:3">+3</button><button data-pts="away:-1">−1</button>
+        </div>
+      </section>
 
-    <section>
-      <h2>事件</h2>
-      <ul id="log"></ul>
-    </section>
+      <section>
+        <h2>比分 / 队伍</h2>
+        <div class="row"><input id="homeName" placeholder="主队简称" aria-label="主队简称"><input type="color" id="homeColor" aria-label="主队颜色"><input class="num" id="homeScore" type="number" aria-label="主队比分"><button data-score="home:1">+1</button><button data-score="home:-1">−1</button></div>
+        <div class="row"><input id="awayName" placeholder="客队简称" aria-label="客队简称"><input type="color" id="awayColor" aria-label="客队颜色"><input class="num" id="awayScore" type="number" aria-label="客队比分"><button data-score="away:1">+1</button><button data-score="away:-1">−1</button></div>
+        <div class="row"><input id="period" placeholder="局/节/半场（手动），例如 R12 / Q3" aria-label="局/节"><button class="primary" id="applyMatch">应用</button></div>
+        <p class="hint">接入 CS2 或计分器后，比分由数据自动驱动。CS2 用队名识别阵营时需与服务器 mp_teamname 一致。</p>
+      </section>
+    </div>
+
+    <div class="tabpanel" data-panel="cs2" hidden>
+      <section>
+        <h2><span class="dot" id="gsiDot"></span>CS2 数据</h2>
+        <dl class="kv">
+          <dt>地图</dt><dd id="csMap">—</dd><dt>回合</dt><dd id="csRound">—</dd>
+          <dt>阶段</dt><dd id="csPhase">—</dd><dt>炸弹</dt><dd id="csBomb">—</dd>
+          <dt>主队阵营</dt><dd id="csSide">—</dd><dt>最近数据</dt><dd id="csAge">—</dd>
+        </dl>
+        <div class="row"><label for="delay">数据延迟 (ms)</label><input class="num" id="delay" type="number" min="0" step="500"><button id="applyDelay">应用</button></div>
+        <div class="row"><input type="checkbox" id="autoSummary"><label for="autoSummary">回合结束自动弹出结算</label><input class="num" id="summaryMs" type="number" min="1000" step="500" aria-label="结算停留毫秒"><label for="summaryMs">ms</label></div>
+        <div class="row">
+          <button id="swapSides">交换主客队阵营</button>
+          <button id="resetCs2" class="danger">重置（换图/新比赛）</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="tabpanel" data-panel="devices" hidden>
+      <section>
+        <h2><span class="dot" id="sbDot"></span>计分器输入（UDP）</h2>
+        <dl class="kv">
+          <dt>状态</dt><dd id="sbStatus">—</dd><dt>最近数据</dt><dd id="sbAge">—</dd>
+          <dt>信息</dt><dd id="sbMessage" style="grid-column: span 3">—</dd>
+        </dl>
+        <form id="sbForm" autocomplete="off">
+          <div class="row"><label><input type="checkbox" name="enabled"> 启用</label><label for="sbPort">UDP 端口</label><input class="num" id="sbPort" name="port" type="number" min="1" max="65535"></div>
+          <div class="row">
+            <label for="sbSource">时钟来源</label>
+            <select id="sbSource" name="clockSource"><option value="internal">内部时钟（LiveCG 计时）</option><option value="scoreboard">计分器</option></select>
+          </div>
+          <div class="row"><label for="sbStale">掉线告警 (ms)</label><input class="num" id="sbStale" name="staleMs" type="number" min="500" step="500"></div>
+          <button type="submit" class="primary">保存并应用</button>
+        </form>
+        <p class="hint">计分器数据格式见 README「接入场馆计分器」。计分器掉线时把时钟来源切回「内部时钟」即可从最后读数继续计时。</p>
+      </section>
+
+      <section>
+        <h2><span class="dot" id="casparDot2"></span>CasparCG <span class="grow"></span><button class="sm" id="casparReconnect">重连</button></h2>
+        <dl class="kv">
+          <dt>状态</dt><dd id="cgStatus">—</dd><dt>版本</dt><dd id="cgVersion">—</dd>
+          <dt>已加载</dt><dd id="cgLoaded">—</dd><dt>信息</dt><dd id="cgMessage" title="">—</dd>
+        </dl>
+        <form id="casparForm" autocomplete="off">
+          <div class="row"><label><input type="checkbox" name="enabled"> 启用</label><input name="host" placeholder="CasparCG 地址" aria-label="CasparCG 地址"><input class="num" name="port" type="number" aria-label="AMCP 端口"></div>
+          <label class="field">LiveCG 地址（CasparCG 访问本服务用，跨机器时不能填 localhost）<input name="baseUrl"></label>
+          <table class="outputs">
+            <thead><tr><th>启用</th><th>输出</th><th>通道</th><th>层</th><th>信号</th></tr></thead>
+            <tbody id="cgOutputs"></tbody>
+          </table>
+          <button type="submit" class="primary">保存并应用</button>
+        </form>
+        <p class="hint">CasparCG 以 HTML producer 加载输出页（<code>PLAY ch-layer [HTML] "…/graphics/?channel=pgm"</code>），断线重连后会自动重新加载。</p>
+      </section>
+
+      <section>
+        <h2>自动上屏</h2>
+        <div class="row"><input type="checkbox" id="autoEvents"><label for="autoEvents">足球事件（进球/红黄牌/换人）自动上屏</label><input class="num" id="eventMs" type="number" min="1000" step="500" aria-label="事件停留毫秒"><label for="eventMs">ms</label></div>
+      </section>
+    </div>
+
+    <div class="tabpanel" data-panel="events" hidden>
+      <section>
+        <h2>事件</h2>
+        <ul id="log"></ul>
+      </section>
+    </div>
   </div>
 </main>
 <div id="toast" role="alert"></div>

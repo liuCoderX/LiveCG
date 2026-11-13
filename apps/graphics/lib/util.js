@@ -13,7 +13,26 @@ export const fmtClock = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
-export const money = (n) => `$${Number(n ?? 0).toLocaleString("en-US")}`;
+/** 篮球等倒计时：最后一分钟显示十分之一秒（58.3），否则 m:ss */
+export const fmtGameClock = (ms, { tenthsUnderMs = 60_000 } = {}) => {
+  if (ms === undefined) return "";
+  if (ms < tenthsUnderMs) return (Math.floor(ms / 100) / 10).toFixed(1);
+  // 与十分之一秒段保持一致地截断（不能向上取整，否则会从 1:01 直接跳到 59.9）
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+/** 足球正计时：mm:ss，分钟不封顶（90:00、105:00） */
+export const fmtMatchClock = (ms) => {
+  if (ms === undefined) return "";
+  const s = Math.floor(ms / 1000);
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
+
+/** 进攻时钟：5 秒以下显示十分之一秒，否则整数秒（向上取整，与场馆计时器一致） */
+export const fmtShotClock = (ms) => (ms === undefined ? "" : ms < 5_000 ? (Math.floor(ms / 100) / 10).toFixed(1) : String(Math.ceil(ms / 1000)));
+
+export const money =(n) => `$${Number(n ?? 0).toLocaleString("en-US")}`;
 
 /** 只在值变化时写 DOM，避免高频数据打断 CSS 过渡 */
 export const setText = (el, v) => {

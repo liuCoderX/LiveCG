@@ -31,8 +31,15 @@ export interface MatchState {
   period: string;
   home: TeamState;
   away: TeamState;
+  /** 比赛主时钟 */
   clock?: ClockState;
-  /** 项目特有数据（CS2：经济、炸弹状态、选手血量等） */
+  /** 篮球进攻时钟（24 秒） */
+  shotClock?: ClockState;
+  /** 当前节/半场序号（从 0 开始，传统体育使用） */
+  periodIndex?: number;
+  /** 节次短标签（Q1 / OT2 / 2H），比分条使用；由赛制预设生成 */
+  periodShort?: string;
+  /** 项目特有数据（CS2：Cs2Extra；足球：FootballExtra；篮球：BasketballExtra） */
   extra: Record<string, unknown>;
 }
 
@@ -115,7 +122,30 @@ export type ClientMessage =
   /** 换图/新比赛：清空已学习的阵容、回合历史、ADR 统计 */
   | { type: "cs2.reset" }
   /** 立即重连 CasparCG 并重新加载输出 */
-  | { type: "casparcg.reconnect" };
+  | { type: "casparcg.reconnect" }
+  // ── 传统体育（M3） ──
+  /** 按预设开始一场新比赛：比分、时钟、节次、犯规/暂停全部重置（队名保留） */
+  | { type: "match.setup"; preset: SportPresetId }
+  | { type: "clock.start" }
+  | { type: "clock.stop" }
+  | { type: "clock.toggle" }
+  | { type: "clock.set"; ms: number }
+  | { type: "clock.adjust"; deltaMs: number }
+  /** 切换节次；时钟按该节的起始值重置并停止 */
+  | { type: "period.set"; index: number }
+  | { type: "period.next" }
+  | { type: "period.prev" }
+  /** 进攻时钟重置（默认 24 秒；进攻篮板等情况传 14 秒） */
+  | { type: "shotclock.reset"; ms?: number }
+  /** 足球：补时分钟数（第四官员举牌） */
+  | { type: "football.addedTime"; minutes: number }
+  /** 足球事件；minute 不传时按当前时钟计算 */
+  | { type: "football.event"; event: Omit<FootballEvent, "id" | "minute"> & { minute?: string } }
+  /** 撤销一条足球事件（进球会同时减去比分） */
+  | { type: "football.undo"; id: string }
+  | { type: "basketball.foul"; team: TeamKey; delta: number }
+  | { type: "basketball.timeout"; team: TeamKey; delta: number }
+  | { type: "basketball.possession"; team?: TeamKey };
 
 /** 服务端 → 客户端 */
 export type ServerMessage =
@@ -144,6 +174,12 @@ export interface CasparConfig {
 }
 
 export interface OutputStatus {
+  scoreboard: {
+    status: "disabled" | "listening" | "receiving" | "stale" | "error";
+    message?: string;
+    /** 最近一次收到计分器数据的服务器时间 */
+    lastAt?: number;
+  };
   casparcg: {
     status: "disabled" | "connecting" | "connected" | "error";
     message?: string;
@@ -162,8 +198,12 @@ export interface AppConfig {
     roundSummary: boolean;
     /** 回合结算停留时长（毫秒） */
     roundSummaryMs: number;
+    /** 足球事件（进球/红黄牌/换人）自动上屏 */
+    matchEvents: boolean;
+    matchEventMs: number;
   };
   casparcg: CasparConfig;
+  scoreboard: ScoreboardConfig;
 }
 
 /** 模板元数据：控制台据此生成播出单编辑表单，输出端据此决定叠放顺序 */
@@ -174,6 +214,77 @@ export interface TemplateMeta {
   /** 叠放顺序，越大越靠上 */
   z: number;
   fields?: Array<{ key: string; label: string; type: "text" | "textarea" | "number"; placeholder?: string }>;
+}
+
+// ───────────────────────── 传统体育 ─────────────────────────
+
+export type SportPresetId = "football" | "basketball-fiba" | "basketball-nba";
+
+export interface PeriodDef {
+  label: string;
+  /** 比分条上的短标签，如 1H / Q3 / OT */
+  short: string;
+  /** 本节开始时时钟的显示值：足球下半场从 45:00 开始正计时；篮球每节从 10:00 倒计时 */
+  startMs: number;
+  /** 本节规定时长（足球据此计算补时分钟，如 45+2'） */
+  lengthMs: number;
+  direction: "up" | "down";
+  /** 进入本节时把双方剩余暂停重置为该值（FIBA 下半场 3 次） */
+  resetTimeouts?: number;
+  /** 进入本节时是否清零全队犯规 */
+  resetFouls?: boolean;
+}
+
+export interface SportPreset {
+  id: SportPresetId;
+  label: string;
+  sport: "football" | "basketball";
+  periods: PeriodDef[];
+  /** 超出 periods 后「下一节」重复使用的节次（篮球多个加时） */
+  repeatLast?: boolean;
+  shotClockMs?: number;
+  /** 全队犯规达到此数后，再犯规即罚球（FIBA / NBA 均为 4） */
+  penaltyFouls?: number;
+}
+
+export interface FootballEvent {
+  id: string;
+  type: "goal" | "ownGoal" | "penaltyGoal" | "yellow" | "red" | "sub";
+  team: TeamKey;
+  player: string;
+  /** 换人：被换下的球员 */
+  playerOut?: string;
+  /** 显示用分钟，如 23' 或 45+2' */
+  minute: string;
+}
+
+export interface FootballExtra {
+  preset: SportPresetId;
+  /** 本节补时分钟数，0 表示未公布 */
+  addedTime: number;
+  events: FootballEvent[];
+  redCards: Record<TeamKey, number>;
+}
+
+export interface BasketballExtra {
+  preset: SportPresetId;
+  fouls: Record<TeamKey, number>;
+  timeouts: Record<TeamKey, number>;
+  possession?: TeamKey;
+  penaltyFouls: number;
+  /** 本赛制单节最多可用暂停数（比分条据此画暂停格数：FIBA 3、NBA 7） */
+  timeoutsMax: number;
+}
+
+/** 外部计分器（UDP 输入） */
+export interface ScoreboardConfig {
+  enabled: boolean;
+  /** UDP 监听端口 */
+  port: number;
+  /** 时钟来源：internal = LiveCG 内部时钟；scoreboard = 跟随计分器 */
+  clockSource: "internal" | "scoreboard";
+  /** 超过此毫秒数没收到数据即告警 */
+  staleMs: number;
 }
 
 // ───────────────────────── CS2 ─────────────────────────
@@ -268,7 +379,11 @@ export type GameEvent =
   | { type: "cs2.bombExploded" }
   | { type: "cs2.clutch"; player: string; team: TeamKey; vs: number }
   | { type: "cs2.halftime" }
-  | { type: "cs2.matchEnd"; winner?: TeamKey };
+  | { type: "cs2.matchEnd"; winner?: TeamKey }
+  | { type: "clock.expired"; periodIndex: number }
+  | { type: "shotclock.expired" }
+  | { type: "period.start"; periodIndex: number; label: string }
+  | { type: "football.event"; event: FootballEvent; score: Record<TeamKey, number> };
 
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object ? DeepPartial<T[K]> : T[K];

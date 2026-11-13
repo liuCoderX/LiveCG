@@ -48,12 +48,17 @@
     return templates.get(name);
   };
 
-  // 比赛时钟：用本机收到数据的时刻做插值，避免服务器与播出机时钟不一致
-  let clockRef = { key: "", localAt: 0 };
-  const clockMs = (clock) => {
+  // 时钟（主时钟 clock、进攻时钟 shotClock）：用本机收到该锚点的时刻插值，
+  // 不依赖服务器与播出机的系统时间一致
+  const clockRefs = new Map();
+  const trackClock = (name, clock) => {
+    const key = clock ? `${clock.ms}|${clock.updatedAt}|${clock.running}` : "";
+    if (clockRefs.get(name)?.key !== key) clockRefs.set(name, { key, localAt: Date.now() });
+  };
+  const clockMs = (name, clock) => {
     if (!clock) return undefined;
     if (!clock.running) return clock.ms;
-    const d = Date.now() - clockRef.localAt;
+    const d = Date.now() - (clockRefs.get(name)?.localAt ?? Date.now());
     return clock.direction === "down" ? Math.max(0, clock.ms - d) : clock.ms + d;
   };
 
@@ -107,7 +112,8 @@
             continue;
           }
           if (e.status === "on" && (e.takeId !== d.layer.takeId || e.tpl !== tpl)) await playOut(e);
-          e.ctx = { match: d.state.match, data: d.layer.data, state: d.state, channel, clockMs: () => clockMs(d.state.match.clock) };
+          const m = d.state.match;
+          e.ctx = { match: m, data: d.layer.data, state: d.state, channel, clockMs: (name = "clock") => clockMs(name, m[name]) };
           if (e.status === "off") {
             if (e.tpl !== tpl) {
               e.el.replaceChildren();
@@ -140,9 +146,8 @@
   connect({
     role: "graphics",
     onState(state) {
-      const c = state.match.clock;
-      const key = c ? `${c.ms}|${c.updatedAt}|${c.running}` : "";
-      if (key !== clockRef.key) clockRef = { key, localAt: Date.now() };
+      trackClock("clock", state.match.clock);
+      trackClock("shotClock", state.match.shotClock);
 
       const source = channel === "pvw" ? state.preview : state.layers;
       const seen = new Set();

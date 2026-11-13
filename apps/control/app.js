@@ -1,4 +1,5 @@
 import { connect } from "/graphics/lib/livecg-client.js";
+import { initSports } from "./sports.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -40,6 +41,19 @@ const client = connect({
   },
 });
 const send = (msg) => client.send(msg);
+const sportsUI = initSports({ send, toast });
+
+// ───────────── 标签页（记住上次打开的页，仅本机） ─────────────
+function showTab(name) {
+  for (const b of document.querySelectorAll("[data-tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+  for (const p of document.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== name;
+  try { localStorage.setItem("livecg.tab", name); } catch {}
+}
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tab]")?.dataset.tab;
+  if (t) showTab(t);
+});
+try { const t = localStorage.getItem("livecg.tab"); if (t && document.querySelector(`[data-tab="${t}"]`)) showTab(t); } catch {}
 
 // ───────────── 渲染 ─────────────
 const sigs = {};
@@ -59,6 +73,8 @@ function render(s) {
   renderMatch(s);
   renderCs2(s);
   renderCaspar(s);
+  renderScoreboard(s);
+  sportsUI.render(s);
   syncEditor(s);
 }
 
@@ -119,11 +135,14 @@ const setVal = (el, v) => { if (document.activeElement !== el) el.value = v ?? "
 
 function renderMatch(s) {
   setVal($("homeName"), s.match.home.shortName); setVal($("awayName"), s.match.away.shortName);
+  setVal($("homeColor"), s.match.home.color ?? "#2f6bff"); setVal($("awayColor"), s.match.away.color ?? "#ff5a36");
   setVal($("homeScore"), s.match.home.score); setVal($("awayScore"), s.match.away.score);
   setVal($("period"), s.match.period);
 }
 
 function renderCs2(s) {
+  setVal($("eventMs"), s.config.automation.matchEventMs);
+  $("autoEvents").checked = s.config.automation.matchEvents;
   setVal($("delay"), s.config.cs2DelayMs);
   setVal($("summaryMs"), s.config.automation.roundSummaryMs);
   $("autoSummary").checked = s.config.automation.roundSummary;
@@ -142,6 +161,46 @@ setInterval(() => {
   $("gsiDot").className = `dot ${age < 15 ? "ok" : at ? "warn" : ""}`;
   $("csAge").textContent = at ? `${age.toFixed(0)} 秒前` : "—";
 }, 1000);
+
+// ───────────── 计分器 ─────────────
+const SB_STATUS = { disabled: ["未启用", ""], listening: ["等待数据", "warn"], receiving: ["接收中", "ok"], stale: ["掉线", "err"], error: ["错误", "err"] };
+let sbDirty = false;
+$("sbForm").addEventListener("input", () => (sbDirty = true));
+
+function renderScoreboard(s) {
+  const st = s.outputs.scoreboard;
+  const [text, cls] = SB_STATUS[st.status] ?? [st.status, ""];
+  $("sbDot").className = `dot ${cls}`;
+  $("sbStatus").textContent = text;
+  $("sbMessage").textContent = st.message ?? "—";
+  // 掉线时顶栏常亮告警：操作员可能正停在别的标签页
+  $("sbAlert").hidden = st.status !== "stale" && st.status !== "error";
+  $("sbAlert").textContent = st.status === "error" ? "计分器错误" : "计分器掉线";
+  if (sbDirty || !changed("sbForm", s.config.scoreboard)) return;
+  const f = $("sbForm").elements;
+  f.enabled.checked = s.config.scoreboard.enabled;
+  f.port.value = s.config.scoreboard.port;
+  f.clockSource.value = s.config.scoreboard.clockSource;
+  f.staleMs.value = s.config.scoreboard.staleMs;
+}
+setInterval(() => {
+  const at = state?.outputs.scoreboard.lastAt;
+  $("sbAge").textContent = at ? `${Math.max(0, (Date.now() - at) / 1000).toFixed(0)} 秒前` : "—";
+}, 1000);
+$("sbForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target.elements;
+  send({ type: "config.set", patch: { scoreboard: {
+    enabled: f.enabled.checked,
+    port: Number(f.port.value) || 5300,
+    clockSource: f.clockSource.value,
+    staleMs: Math.max(500, Number(f.staleMs.value) || 3000),
+  } } });
+  sbDirty = false;
+  sigs.sbForm = undefined;
+});
+$("autoEvents").onchange = () => send({ type: "config.set", patch: { automation: { matchEvents: $("autoEvents").checked } } });
+$("eventMs").onchange = () => send({ type: "config.set", patch: { automation: { matchEventMs: Math.max(1000, Number($("eventMs").value) || 8000) } } });
 
 // ───────────── CasparCG ─────────────
 const CG_STATUS = { disabled: ["未启用", ""], connecting: ["连接中", "warn"], connected: ["已连接", "ok"], error: ["错误", "err"] };
@@ -280,8 +339,8 @@ $("clearAll").onclick = () => send({ type: "graphic.clearAll" });
 // ───────────── 赛况 / CS2 ─────────────
 $("applyMatch").onclick = () => send({ type: "match.patch", patch: {
   period: $("period").value,
-  home: { shortName: $("homeName").value, name: $("homeName").value, score: Number($("homeScore").value) },
-  away: { shortName: $("awayName").value, name: $("awayName").value, score: Number($("awayScore").value) },
+  home: { shortName: $("homeName").value, name: $("homeName").value, color: $("homeColor").value, score: Number($("homeScore").value) },
+  away: { shortName: $("awayName").value, name: $("awayName").value, color: $("awayColor").value, score: Number($("awayScore").value) },
 }});
 document.querySelectorAll("[data-score]").forEach((b) => (b.onclick = () => {
   const [side, d] = b.dataset.score.split(":");
@@ -322,6 +381,8 @@ function logEvent(e) {
 const typing = (el) => el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
 document.addEventListener("keydown", (e) => {
   if (!state || e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(document.activeElement)) return;
+  // Shift + 空格：比赛时钟开始/停止（必须在「空格 = TAKE」之前判断）
+  if (e.key === " " && e.shiftKey) { e.preventDefault(); sportsUI.toggleClock(); return; }
   const items = state.rundown.items;
   const idx = items.findIndex((it) => it.id === state.rundown.selectedId);
   const handled = () => e.preventDefault();

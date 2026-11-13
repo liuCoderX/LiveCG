@@ -37,7 +37,7 @@ const initialMatch: MatchState = {
 export function defaultConfig(port = Number(process.env.PORT ?? 3000)): AppConfig {
   return {
     cs2DelayMs: Number(process.env.CS2_DELAY_MS ?? 0),
-    automation: { roundSummary: true, roundSummaryMs: 7000 },
+    automation: { roundSummary: true, roundSummaryMs: 7000, matchEvents: true, matchEventMs: 8000 },
     casparcg: {
       enabled: false,
       host: "127.0.0.1",
@@ -48,6 +48,7 @@ export function defaultConfig(port = Number(process.env.PORT ?? 3000)): AppConfi
         { id: "pvw", label: "PVW", channel: 2, layer: 20, source: "pvw", enabled: false },
       ],
     },
+    scoreboard: { enabled: false, port: 5300, clockSource: "internal", staleMs: 3000 },
   };
 }
 
@@ -61,6 +62,9 @@ export function defaultRundown(): Rundown {
     { id: "lt-caster-1", label: "人名条 · 解说 1", layer: "lt", template: "lower-third", data: { title: "解说 张三", subtitle: "LiveCG 电竞频道" }, hotkey: "5" },
     { id: "lt-caster-2", label: "人名条 · 解说 2", layer: "lt", template: "lower-third", data: { title: "解说 李四", subtitle: "LiveCG 电竞频道" }, hotkey: "6" },
     { id: "caption", label: "实时字幕", layer: "caption", template: "caption", data: { text: "" }, hotkey: "7" },
+    { id: "football-scorebug", label: "足球比分条", layer: "scorebug", template: "football-scorebug", data: {} },
+    { id: "basketball-scorebug", label: "篮球比分条", layer: "scorebug", template: "basketball-scorebug", data: {} },
+    { id: "lineup-home", label: "首发名单 · 主队", layer: "fullscreen", template: "lineup", data: { team: "home", title: "首发阵容", players: "1 球员甲 门将\n4 球员乙 后卫\n10 球员丙 前锋", coach: "" } },
   ];
   return { items, selectedId: items[0].id };
 }
@@ -86,7 +90,7 @@ export class Store {
       preview: {},
       rundown: seed.rundown ?? defaultRundown(),
       config: seed.config ? deepMerge(defaultConfig(), seed.config) : defaultConfig(),
-      outputs: { casparcg: { status: "disabled", loaded: [] } },
+      outputs: { casparcg: { status: "disabled", loaded: [] }, scoreboard: { status: "disabled" } },
       rev: 0,
     };
   }
@@ -102,6 +106,11 @@ export class Store {
 
   patchMatch(patch: DeepPartial<MatchState>): void {
     this.commit({ ...this.state, match: deepMerge(this.state.match, patch) });
+  }
+
+  /** 整体替换比赛状态（换项目时需要丢掉上一个项目的 extra，deepMerge 做不到） */
+  setMatch(fn: (m: MatchState) => MatchState): void {
+    this.commit({ ...this.state, match: fn(this.state.match) });
   }
 
   setOutputs(patch: DeepPartial<OutputStatus>): void {
