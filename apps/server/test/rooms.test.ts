@@ -13,7 +13,7 @@ const appsDir = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function withApp(fn: (ctx: { base: string; port: number; dataDir: string; app: ReturnType<typeof createApp> }) => Promise<void>, dataDir = mkdtempSync(join(tmpdir(), "livecg-rooms-"))) {
-  const app = createApp({ appsDir, dataDir, gsiToken: "t0ken" });
+  const app = createApp({ appsDir, dataDir, gsiToken: "t0ken", auth: { enabled: false } });
   const port = await app.listen(0);
   try {
     await fn({ base: `http://127.0.0.1:${port}`, port, dataDir, app });
@@ -145,7 +145,7 @@ test("unknown room websocket is closed with 4404; deleting a room disconnects it
 test("rooms persist to separate files, deleted rooms are kept as .deleted, and everything reloads", async () => {
   const dataDir = mkdtempSync(join(tmpdir(), "livecg-rooms-"));
   try {
-    let app = createApp({ appsDir, dataDir, gsiToken: "x" });
+    let app = createApp({ appsDir, dataDir, gsiToken: "x", auth: { enabled: false } });
     let port = await app.listen(0);
     let base = `http://127.0.0.1:${port}`;
     await post(`${base}/api/rooms`, { name: "保留", id: "keep" });
@@ -160,7 +160,7 @@ test("rooms persist to separate files, deleted rooms are kept as .deleted, and e
     assert.ok(files.includes("keep.json"));
     assert.ok(files.some((f) => f.startsWith("drop.json.deleted-")));
 
-    app = createApp({ appsDir, dataDir, gsiToken: "x" });
+    app = createApp({ appsDir, dataDir, gsiToken: "x", auth: { enabled: false } });
     port = await app.listen(0);
     base = `http://127.0.0.1:${port}`;
     const list = (await fetch(`${base}/api/rooms`).then((r) => r.json())) as RoomSummary[];

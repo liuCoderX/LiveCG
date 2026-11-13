@@ -4,6 +4,8 @@ import { useLive } from "../lib/live.ts";
 import { useTemplates } from "../lib/templates.ts";
 import { storage } from "../lib/hooks.ts";
 import { useToast } from "../lib/toast.tsx";
+import { roleLabel, useMe } from "../lib/auth.tsx";
+import { ROOM } from "../lib/live.ts";
 import { describeEvent } from "./describe.ts";
 import { Header } from "./Header.tsx";
 import { Rundown } from "./Rundown.tsx";
@@ -17,6 +19,10 @@ type Tab = (typeof TABS)[number][0];
 
 export function ControlApp() {
   const toast = useToast();
+  const me = useMe();
+  const role = me.user.role;
+  const inScope = role === "admin" || me.user.rooms === "*" || me.user.rooms.includes(ROOM);
+  const readOnly = role === "viewer" || !inScope;
   const templates = useTemplates();
   const [log, setLog] = useState<LogLine[]>([]);
   const stateRef = useRef<AppState>();
@@ -50,9 +56,9 @@ export function ControlApp() {
     if (state) document.title = `${state.room.name} · LiveCG 控制台`;
   }, [state?.room.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useHotkeys(state, send, () => setEditorMode("edit"));
+  useHotkeys(readOnly ? undefined : state, send, () => setEditorMode("edit"));
 
-  const roomGone = live.roomGone || !roomExists;
+  const roomGone = inScope && (live.roomGone || !roomExists);
 
   return (
     <>
@@ -60,13 +66,20 @@ export function ControlApp() {
       <div id="roomGone" role="alert" style={{ display: roomGone ? "block" : "none" }}>
         这个房间不存在或已被删除。<a href="/control/rooms.html" style={{ color: "#fff" }}>去房间管理</a>
       </div>
+      {readOnly && (
+        <div className="readonly-note" id="readonlyNote" role="status">
+          {inScope ? `当前账号为${roleLabel(role)}，只能查看，不能操作。` : `账号「${me.user.username}」没有房间「${ROOM}」的权限，只能查看画面。`}
+        </div>
+      )}
       {state && (
         <main>
-          <div className="col">
+          {/* 只读账号：禁用所有操作控件，但标签页切换（只是查看）保持可用 */}
+          <fieldset className="bare col" disabled={readOnly}>
             <Rundown
               state={state}
               templates={templates}
               send={send}
+              readOnly={readOnly}
               onNew={() => {
                 setEditorMode("new");
                 setNewSeq((n) => n + 1);
@@ -74,22 +87,24 @@ export function ControlApp() {
               onSelect={() => setEditorMode("edit")}
             />
             <Editor state={state} templates={templates} send={send} mode={editorMode} setMode={setEditorMode} newSeq={newSeq} />
-          </div>
-          <div className="col">
+          </fieldset>
+          <fieldset className="bare col" disabled={readOnly}>
             <Monitors state={state} send={send} />
             <OnAir state={state} templates={templates} send={send} />
             <Keys />
-          </div>
+          </fieldset>
           <div className="col col-c">
             <nav className="tabs" role="tablist" aria-label="面板">
               {TABS.map(([k, label]) => (
                 <button key={k} role="tab" data-tab={k} aria-selected={tab === k} onClick={() => showTab(k)}>{label}</button>
               ))}
             </nav>
-            <MatchTab state={state} send={send} hidden={tab !== "match"} />
-            <Cs2Tab state={state} send={send} hidden={tab !== "cs2"} />
-            <DevicesTab state={state} send={send} hidden={tab !== "devices"} />
-            <EventsTab log={log} hidden={tab !== "events"} />
+            <fieldset className="bare col" disabled={readOnly}>
+              <MatchTab state={state} send={send} hidden={tab !== "match"} />
+              <Cs2Tab state={state} send={send} hidden={tab !== "cs2"} />
+              <DevicesTab state={state} send={send} hidden={tab !== "devices"} canEditDevices={role === "admin"} />
+              <EventsTab log={log} hidden={tab !== "events"} />
+            </fieldset>
           </div>
         </main>
       )}

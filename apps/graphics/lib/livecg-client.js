@@ -12,7 +12,9 @@ export function connect({ role, room = currentRoom(), onState, onEvent, onError,
   const queue = [];
   const open = () => {
     if (closed) return;
-    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?room=${encodeURIComponent(room)}`);
+    // 输出页地址上的 ?token=（服务端设置了输出令牌时需要）原样带给 WebSocket
+    const token = new URLSearchParams(location.search).get("token");
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?room=${encodeURIComponent(room)}${token ? `&token=${encodeURIComponent(token)}` : ""}`);
     ws.onopen = () => {
       // 服务端重启后 rev 从 0 开始，重连时必须重置，否则会丢弃所有新状态
       lastRev = -1;

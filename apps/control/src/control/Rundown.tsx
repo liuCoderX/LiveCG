@@ -7,10 +7,12 @@ interface Props {
   send: (m: ClientMessage) => void;
   onNew: () => void;
   onSelect: () => void;
+  /** 只读账号：点击条目不发「选中」指令（服务端会拒绝） */
+  readOnly?: boolean;
 }
 
 /** 播出单：React 按 key 原地更新列表项，10Hz 数据刷新时按钮不会被替换，点击不会丢 */
-export function Rundown({ state, templates, send, onNew, onSelect }: Props) {
+export function Rundown({ state, templates, send, onNew, onSelect, readOnly }: Props) {
   const items = state.rundown.items;
   return (
     <section>
@@ -28,6 +30,7 @@ export function Rundown({ state, templates, send, onNew, onSelect }: Props) {
               data-id={it.id}
               className={cls}
               onClick={() => {
+                if (readOnly) return;
                 onSelect();
                 send({ type: "rundown.select", id: it.id });
               }}

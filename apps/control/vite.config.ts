@@ -15,6 +15,9 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, "index.html"),
         rooms: resolve(__dirname, "rooms.html"),
+        login: resolve(__dirname, "login.html"),
+        users: resolve(__dirname, "users.html"),
+        audit: resolve(__dirname, "audit.html"),
       },
     },
   },

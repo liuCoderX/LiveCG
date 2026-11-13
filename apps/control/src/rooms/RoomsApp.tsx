@@ -3,6 +3,7 @@ import type { RoomInfo, RoomSummary } from "@livecg/shared";
 import { api } from "../lib/api.ts";
 import { useInterval } from "../lib/hooks.ts";
 import { useToast } from "../lib/toast.tsx";
+import { PageHeader, useMe } from "../lib/auth.tsx";
 
 const SPORT: Record<string, string> = { cs2: "CS2", football: "足球", basketball: "篮球", generic: "通用" };
 const DEV: Record<string, [string, string]> = {
@@ -13,6 +14,8 @@ const DEV: Record<string, [string, string]> = {
 /** 房间管理：每 2 秒刷新状态；React 原地更新卡片，展开的地址栏和文本选择不会被打断 */
 export function RoomsApp() {
   const toast = useToast();
+  const me = useMe();
+  const isAdmin = me.user.role === "admin";
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
@@ -38,17 +41,17 @@ export function RoomsApp() {
 
   return (
     <>
-      <header>
-        <h1>LiveCG 房间</h1>
-        <span className="hint" style={{ margin: 0 }}>每个房间是一场独立的赛事：独立的比分、播出单、输出地址和数据接入</span>
-      </header>
+      <PageHeader title="LiveCG 房间" subtitle="每个房间是一场独立的赛事：独立的比分、播出单、输出地址和数据接入" />
       <main>
-        <CreateRoom rooms={rooms} onCreated={refresh} />
+        {isAdmin && <CreateRoom rooms={rooms} onCreated={refresh} />}
+        {!rooms.length && <p className="hint">没有可访问的房间。请联系管理员分配房间权限。</p>}
         <div id="rooms" aria-live="polite">
           {rooms.map((r) => (
             <RoomCard
               key={r.id}
               room={r}
+              isAdmin={isAdmin}
+              outputToken={me.outputToken}
               open={open.has(r.id)}
               onToggle={(v) => setOpen((cur) => { const n = new Set(cur); v ? n.add(r.id) : n.delete(r.id); return n; })}
               onRename={() => {
@@ -106,8 +109,8 @@ function CreateRoom({ rooms, onCreated }: { rooms: RoomSummary[]; onCreated: () 
   );
 }
 
-function RoomCard({ room: r, open, onToggle, onRename, onDelete }: {
-  room: RoomSummary; open: boolean; onToggle: (v: boolean) => void; onRename: () => void; onDelete: () => void;
+function RoomCard({ room: r, isAdmin, outputToken, open, onToggle, onRename, onDelete }: {
+  room: RoomSummary; isAdmin: boolean; outputToken?: string; open: boolean; onToggle: (v: boolean) => void; onRename: () => void; onDelete: () => void;
 }) {
   const toast = useToast();
   const q = encodeURIComponent(r.id);
@@ -115,8 +118,9 @@ function RoomCard({ room: r, open, onToggle, onRename, onDelete }: {
   const cs2Live = r.cs2LastFrameAt && Date.now() - r.cs2LastFrameAt < 15_000;
   const urls: Array<[string, string]> = [
     ["控制台", `${origin}/control/?room=${q}`],
-    ["PGM 输出", `${origin}/graphics/?room=${q}&channel=pgm`],
-    ["PVW 输出", `${origin}/graphics/?room=${q}&channel=pvw`],
+    // 设置了输出令牌时，输出页地址要带上它（仅管理员能看到令牌）
+    ["PGM 输出", `${origin}/graphics/?room=${q}&channel=pgm${outputToken ? `&token=${encodeURIComponent(outputToken)}` : ""}`],
+    ["PVW 输出", `${origin}/graphics/?room=${q}&channel=pvw${outputToken ? `&token=${encodeURIComponent(outputToken)}` : ""}`],
     ["CS2 GSI", `${origin}/gsi/cs2/${q}`],
     ["指令 API", `${origin}/api/rooms/${q}/command`],
   ];
@@ -142,8 +146,8 @@ function RoomCard({ room: r, open, onToggle, onRename, onDelete }: {
       <div className="actions">
         <a className="btn primary" href={`/control/?room=${q}`}>打开控制台</a>
         <span className="grow" />
-        <button data-act="rename" onClick={onRename}>改名</button>
-        {r.id !== "default" && (
+        {isAdmin && <button data-act="rename" onClick={onRename}>改名</button>}
+        {isAdmin && r.id !== "default" && (
           <button data-act="delete" className="danger" disabled={r.onAir > 0} title={r.onAir ? "请先在控制台全部下屏" : undefined} onClick={onDelete}>删除</button>
         )}
       </div>

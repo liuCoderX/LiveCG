@@ -108,3 +108,12 @@ input[type=color] { width: 36px; height: 32px; padding: 2px; flex: none !importa
 
 #toast { position: fixed; right: 20px; bottom: 20px; max-width: min(420px, calc(100vw - 40px)); background: #3a1d1f; border: 1px solid var(--live); color: #ffd6d6; padding: 10px 14px; border-radius: 8px; display: none; z-index: 20; }
 #toast.ok { background: #16301f; border-color: var(--ok); color: #c8f2d4; }
+
+/* 账号菜单 */
+.user-menu { display: inline-flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; font-size: 13px; }
+.user-menu a { color: var(--muted); }
+.user-menu a:hover { color: var(--text); }
+.user-menu .who { font-weight: 700; }
+.user-menu .who small { color: var(--muted); font-weight: 400; }
+fieldset.bare { border: 0; margin: 0; padding: 0; min-width: 0; }
+.readonly-note { background: #2a2f38; color: var(--muted); padding: 6px 20px; font-size: 13px; }

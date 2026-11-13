@@ -6,7 +6,18 @@ const PORT = Number(process.env.PORT ?? 3000);
 const appsDir = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const dataDir = process.env.LIVECG_DATA_DIR ?? join(appsDir, "..", "data", "runtime");
 
-const app = createApp({ appsDir, dataDir, gsiToken: process.env.CS2_GSI_TOKEN ?? "change-me" });
+const authEnabled = process.env.LIVECG_AUTH !== "off";
+const app = createApp({
+  appsDir,
+  dataDir,
+  gsiToken: process.env.CS2_GSI_TOKEN ?? "change-me",
+  auth: {
+    enabled: authEnabled,
+    initialAdminPassword: process.env.LIVECG_ADMIN_PASSWORD,
+    outputToken: process.env.LIVECG_OUTPUT_TOKEN,
+  },
+});
+if (!authEnabled) console.warn("[livecg] ⚠ 鉴权已关闭（LIVECG_AUTH=off）：任何能访问本服务的人都有管理员权限，仅限本机开发使用");
 const port = await app.listen(PORT);
 
 console.log(`[livecg] server on http://localhost:${port}`);

@@ -28,13 +28,14 @@ export class Room {
     readonly id: string,
     private file: string | undefined,
     seed: StoreSeed,
+    options: { outputToken?: string } = {},
   ) {
     this.store = new Store({ ...seed, room: { id, name: seed.room?.name ?? id } });
     const s = this.store;
     this.cs2 = new Cs2Adapter(() => ({ home: s.get().match.home.name, away: s.get().match.away.name }));
     this.cs2Delay = new DelayQueue(() => s.get().config.cs2DelayMs);
     this.rules = createRules(s);
-    this.caspar = new CasparClient(s);
+    this.caspar = new CasparClient(s, { outputToken: options.outputToken });
     this.sports = new SportsController(s, (e) => this.emit(e));
     this.scoreboard = new ScoreboardInput(s, (i) => (this.sports.preset ? periodAt(this.sports.preset, i) : undefined));
   }

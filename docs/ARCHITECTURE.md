@@ -132,7 +132,7 @@ M2 已实现以下能力（★ 为尚未实现）：
 - **CasparCG**（`casparcg.ts`）：AMCP 客户端对每路输出发送 `PLAY ch-layer [HTML] "<url>"`，之后所有上下屏都在页面内完成，不走 AMCP 往返。配置变化只发送差异（PLAY / CLEAR），断线指数退避重连，CasparCG 重启后自动重新加载。
 - **持久化**（`persist.ts`）：配置、播出单、队伍资料按房间写入 `data/runtime/rooms/<房间>.json`（`LIVECG_DATA_DIR` 可改）；新房间创建后立即落盘；只有这些内容变化时才写盘，先写临时文件再改名防止断电损坏。比分、图层、实时数据不持久化。
 - ★ **主备**：两台播出机同时连接同一个 Core Server；Core Server 也可主备（状态持久化 + 重连拉快照）。
-- ★ **操作审计**：所有指令记录日志，便于赛后复盘事故。
+- **操作审计**（M4b，`auth/audit.ts`）：所有控制指令、登录登出、账号与房间变更（含被拒绝的操作）追加写入按天切分的 JSONL，管理员可在控制台按日期 / 房间 / 账号 / 操作筛选。
 - ★ **MIDI / X-Keys** 原生支持（目前可经 Companion 转 HTTP）。
 
 ---
@@ -148,6 +148,15 @@ M2 已实现以下能力（★ 为尚未实现）：
 - **迁移**：启动时如发现单房间版本的 `livecg.json` 且尚无默认房间文件，自动迁移为默认房间。
 - **服务结构**：`app.ts` 的 `createApp()` 组装 HTTP / WebSocket / 房间管理，`index.ts` 只负责读取环境变量和启动；测试可在随机端口起完整服务做集成测试。
 
+## 7.6 登录与权限（M4b）
+
+- **身份**（`auth/auth.ts`）：浏览器用会话 Cookie（HttpOnly、SameSite=Lax，服务端只存会话 id 的 SHA-256，落盘后重启不掉线，24 小时滑动过期）；外部设备用 API 令牌（`Authorization: Bearer lcg_…`，只存 SHA-256，明文只显示一次，令牌不能再创建令牌）。密码用 scrypt + 随机盐；用户不存在时也做一次哈希，避免按响应时间猜用户名；同一 IP + 用户名 5 分钟内失败 5 次锁定 60 秒。
+- **角色**（`auth/permissions.ts`）：admin / operator / viewer，加上可选的房间范围。设备配置（`config.set` 里的 `casparcg` / `scoreboard`）只允许管理员：改错一个端口或通道层可能让别的房间黑屏。
+- **每次都重新鉴权**：WebSocket 只在连接时记下凭据（会话 id / 令牌），每条指令都重新解析身份，所以删号、降权、改密码（会踢掉其它会话）对已打开的控制台立即生效。
+- **跨站防护**：带 Origin 的请求必须与 Host 一致才承认 Cookie 会话；WebSocket 握手不受 SameSite 约束，靠这一条挡住跨站劫持。
+- **输出页只读**：未登录的 WebSocket 只能收状态、不能发指令，所以输出页地址无需登录；需要更严格时用 `LIVECG_OUTPUT_TOKEN` 要求输出页带令牌。
+- **初始管理员**：首次启动且没有账号时创建；未指定密码则随机生成并强制首次登录修改。被管理员重置的密码同样需要本人修改，修改前除改密码外的接口一律 403。
+
 ## 8. 目录结构（当前）
 
 ```
@@ -161,6 +170,7 @@ LiveCG/
 │   │   ├── src/casparcg.ts           CasparCG AMCP 客户端
 │   │   ├── src/app.ts                HTTP / WebSocket 路由（按房间分发）
 │   │   ├── src/rooms.ts              房间管理：创建/改名/删除/迁移、设备冲突检查
+│   │   ├── src/auth/                 账号/会话/API 令牌、角色权限、操作审计
 │   │   ├── src/room.ts               单个房间的全部服务实例
 │   │   ├── src/persist.ts            配置/播出单持久化（每房间一个文件）
 │   │   ├── src/sports/               传统体育：时钟、赛制预设、控制器、计分器 UDP 输入

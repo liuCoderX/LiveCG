@@ -1,4 +1,4 @@
-/* 房间管理页样式 */
+/* 管理页（房间 / 账号 / 审计 / 登录）共用样式 */
 :root { color-scheme: dark; --bg: #14161a; --panel: #1d2026; --panel-2: #23272e; --line: #2c313a; --text: #e8eaed; --muted: #9aa0a6;
   --accent: #2f6bff; --live: #e5484d; --ok: #3fb950; --warn: #d29922; }
 * { box-sizing: border-box; }
@@ -41,3 +41,33 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .urls button { padding: 2px 8px; font-size: 12px; }
 #toast { position: fixed; right: 20px; bottom: 20px; max-width: min(420px, calc(100vw - 40px)); background: #3a1d1f; border: 1px solid var(--live); color: #ffd6d6; padding: 10px 14px; border-radius: 8px; display: none; z-index: 20; }
 #toast.ok { background: #16301f; border-color: var(--ok); color: #c8f2d4; }
+
+/* 账号菜单 */
+.user-menu { display: inline-flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; font-size: 13px; }
+.user-menu a { color: var(--muted); }
+.user-menu a:hover { color: var(--text); }
+.user-menu .who { font-weight: 700; }
+.user-menu .who small { color: var(--muted); font-weight: 400; }
+button.sm { padding: 2px 8px; font-size: 12px; }
+
+/* 表格（账号 / 审计） */
+.table-wrap { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.grid td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.grid tr.fail td { color: #ffb4b4; }
+table.grid code { font-size: 12px; color: var(--muted); word-break: break-all; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.row > input, .row > select { flex: 1; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: end; }
+.secret { font-family: ui-monospace, monospace; background: #0f1115; border: 1px dashed var(--warn); padding: 8px 10px; border-radius: 6px; word-break: break-all; }
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #2a2f38; color: var(--muted); white-space: nowrap; }
+.tag.ok { background: #16301f; color: #c8f2d4; } .tag.err { background: #3a1d1f; color: #ffd6d6; }
+
+/* 登录页 */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login { width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.login h1 { font-size: 20px; margin: 0 0 4px; }
+.login label { font-size: 13px; }
+.login button[type=submit] { padding: 9px 12px; }
+.error-text { color: #ffb4b4; font-size: 13px; margin: 0; }

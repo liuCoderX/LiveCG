@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AppState, RoomSummary } from "@livecg/shared";
 import { ROOM } from "../lib/live.ts";
 import { useInterval } from "../lib/hooks.ts";
+import { UserMenu } from "../lib/auth.tsx";
 
 const CG_STATUS: Record<string, [string, string]> = { disabled: ["未启用", ""], connecting: ["连接中", "warn"], connected: ["已连接", "ok"], error: ["错误", "err"] };
 export const casparStatus = (s: string) => CG_STATUS[s] ?? [s, ""];
@@ -42,7 +43,6 @@ export function Header({ state, connected, onRoomsLoaded }: { state?: AppState; 
           {!rooms.some((r) => r.id === ROOM) && <option value={ROOM}>{ROOM}</option>}
         </select>
       </label>
-      <a href="/control/rooms.html" className="hint" style={{ margin: 0 }}>房间管理</a>
       <span className={`dot ${connected ? "ok" : "err"}`} id="connDot" />
       <span id="conn" className="hint" style={{ margin: 0 }}>
         {!state ? "连接中…" : connected ? `已连接 · rev ${state.rev} · ${state.match.sport}` : "连接断开，正在重连…"}
@@ -54,6 +54,7 @@ export function Header({ state, connected, onRoomsLoaded }: { state?: AppState; 
       <span id="casparChip" className="hint" style={{ margin: 0 }}>
         CasparCG {cgText}{cg?.status === "connected" ? ` · 已加载 ${cg.loaded.length} 路` : ""}
       </span>
+      <UserMenu />
     </header>
   );
 }

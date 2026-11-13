@@ -60,18 +60,37 @@ pnpm start
 | Esc / Shift + Esc | 清空 PVW / PGM 全部下屏 |
 | Shift + 空格 | 比赛时钟 开始 / 停止（传统体育） |
 
+## 登录与权限
+
+控制台、房间管理和 API 都需要登录；**输出页不需要登录**（只读），OBS / vMix / CasparCG 的地址不受影响。
+
+- **首次启动**会创建管理员 `admin`：密码取环境变量 `LIVECG_ADMIN_PASSWORD`；没设置时随机生成，打印在服务端控制台，并写入 `data/runtime/initial-admin-password.txt`（仅本机可读）。用随机密码首次登录时必须改密码，改完请删除该文件。
+- **角色**：
+
+  | 角色 | 能做什么 |
+  |---|---|
+  | 管理员 | 全部：房间管理、设备配置（CasparCG / 计分器）、账号管理、操作审计 |
+  | 导播 | 播出与赛况操作（上下屏、播出单、比分、时钟、事件、CS2 设置）；不能改设备配置、不能管理房间和账号 |
+  | 只读 | 只能查看 |
+
+  导播和只读账号可以限定只能访问某些房间。
+- **账号管理**：右上角「账号与权限」。新账号的初始密码需本人首次登录后修改；管理员可重置密码、调整角色和房间范围，改动立即生效（已打开的控制台也会立刻失去对应权限）。
+- **操作审计**：右上角「操作审计」（仅管理员），按天查看谁在什么时候对哪个房间做了什么，包括被拒绝的操作和登录失败。记录保存在 `data/runtime/audit/YYYY-MM-DD.jsonl`。
+- **输出页令牌（可选）**：设置环境变量 `LIVECG_OUTPUT_TOKEN` 后，未登录的输出页地址必须带 `&token=<令牌>`；房间页上复制的地址和 CasparCG 自动加载的地址会自动带上。
+- 连续输错 5 次密码会锁定 1 分钟。本地开发可用 `LIVECG_AUTH=off` 关闭鉴权（所有人都是管理员），**不要在播出环境使用**。
+
+> LiveCG 没有内置 HTTPS。跨网络访问时请放在带 HTTPS 的反向代理后面，或只在制作内网使用。
+
 ## 外部控制（Stream Deck / Companion / 脚本）
 
-所有控制台操作都可以通过 HTTP 调用，body 与控制台发出的指令相同，路径里带上房间：
+所有控制台操作都可以通过 HTTP 调用，body 与控制台发出的指令相同，路径里带上房间。先在「我的账号 → API 令牌」创建一个令牌（权限与你的账号相同，只显示一次）：
 
 ```bash
-curl -X POST http://localhost:3000/api/rooms/default/command -d '{"type":"graphic.take"}'
+curl -X POST http://localhost:3000/api/rooms/default/command -H "Authorization: Bearer lcg_xxxxxxxx" -d '{"type":"graphic.take"}'
 ```
 
 常用指令：`{"type":"rundown.fire","id":"<条目 id>"}`（热键同款上/下屏）、`{"type":"rundown.cue"}`、`{"type":"graphic.take"}`、`{"type":"graphic.clearAll"}`、`{"type":"graphic.update","layer":"caption","data":{"text":"…"}}`。
-条目 id 可在 `GET /api/rooms/<房间>/state` 的 `rundown.items` 中查到（不带房间的 `/api/command`、`/api/state` 仍可用，作用于默认房间）。Bitfocus Companion 用「Generic HTTP → POST」动作即可绑定到 Stream Deck 按键。
-
-> 控制接口没有鉴权，只应在制作内网使用，不要暴露到公网。
+条目 id 可在 `GET /api/rooms/<房间>/state` 的 `rundown.items` 中查到（不带房间的 `/api/command`、`/api/state` 仍可用，作用于默认房间）。Bitfocus Companion 用「Generic HTTP → POST」动作，加上 `Authorization: Bearer <令牌>` 请求头即可绑定到 Stream Deck 按键。令牌可随时在「我的账号」吊销。
 
 ## 接入 CasparCG
 

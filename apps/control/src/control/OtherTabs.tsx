@@ -70,11 +70,14 @@ export function Cs2Tab({ state, send, hidden }: { state: AppState; send: Send; h
 
 const SB_STATUS: Record<string, [string, string]> = { disabled: ["未启用", ""], listening: ["等待数据", "warn"], receiving: ["接收中", "ok"], stale: ["掉线", "err"], error: ["错误", "err"] };
 
-export function DevicesTab({ state, send, hidden }: { state: AppState; send: Send; hidden: boolean }) {
+export function DevicesTab({ state, send, hidden, canEditDevices }: { state: AppState; send: Send; hidden: boolean; canEditDevices: boolean }) {
   return (
     <div className="tabpanel" data-panel="devices" hidden={hidden}>
-      <ScoreboardSection state={state} send={send} />
-      <CasparSection state={state} send={send} />
+      {!canEditDevices && <p className="hint" id="devicesLocked" style={{ margin: 0 }}>设备配置（计分器、CasparCG）只有管理员可以修改；状态可以正常查看。</p>}
+      <fieldset className="bare tabpanel" disabled={!canEditDevices}>
+        <ScoreboardSection state={state} send={send} />
+        <CasparSection state={state} send={send} />
+      </fieldset>
       <AutomationSection state={state} send={send} />
     </div>
   );

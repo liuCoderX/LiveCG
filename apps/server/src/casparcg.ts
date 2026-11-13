@@ -27,7 +27,7 @@ export class CasparClient {
   private stopped = false;
   private unsubscribe?: () => void;
 
-  constructor(private store: Store) {}
+  constructor(private store: Store, private options: { outputToken?: string } = {}) {}
 
   start(): void {
     this.unsubscribe = this.store.subscribe(() => this.sync());
@@ -52,8 +52,9 @@ export class CasparClient {
     return this.store.get().config.casparcg;
   }
 
-  static urlFor(cfg: CasparConfig, out: CasparOutput, roomId: string): string {
-    return `${cfg.baseUrl.replace(/\/+$/, "")}/graphics/?room=${encodeURIComponent(roomId)}&channel=${out.source}`;
+  static urlFor(cfg: CasparConfig, out: CasparOutput, roomId: string, outputToken?: string): string {
+    const token = outputToken ? `&token=${encodeURIComponent(outputToken)}` : "";
+    return `${cfg.baseUrl.replace(/\/+$/, "")}/graphics/?room=${encodeURIComponent(roomId)}&channel=${out.source}${token}`;
   }
 
   private sync(): void {
@@ -117,7 +118,7 @@ export class CasparClient {
     const cfg = this.cfg;
     const roomId = this.store.get().room.id;
     const desired = new Map(
-      cfg.outputs.filter((o) => o.enabled).map((o) => [o.id, { target: `${o.channel}-${o.layer}`, url: CasparClient.urlFor(cfg, o, roomId) }]),
+      cfg.outputs.filter((o) => o.enabled).map((o) => [o.id, { target: `${o.channel}-${o.layer}`, url: CasparClient.urlFor(cfg, o, roomId, this.options.outputToken) }]),
     );
     const desiredTargets = new Set([...desired.values()].map((d) => d.target));
     for (const [id, cur] of this.loaded) {

@@ -35,6 +35,7 @@ export class RoomManager {
     private dataDir: string | undefined,
     /** 每个房间的在线客户端数（由 WebSocket 层提供） */
     private clientCount: (id: string) => { control: number; graphics: number } = () => ({ control: 0, graphics: 0 }),
+    private roomOptions: { outputToken?: string } = {},
   ) {
     this.roomsDir = dataDir ? join(dataDir, "rooms") : "";
   }
@@ -73,7 +74,7 @@ export class RoomManager {
   private open(id: string, seedOverride?: StoreSeed): Room {
     const file = this.fileFor(id);
     const seed = { ...(file ? loadSeed(file, id) : {}), ...(seedOverride ?? {}) };
-    const room = new Room(id, file, seed);
+    const room = new Room(id, file, seed, this.roomOptions);
     this.rooms.set(id, room);
     room.start();
     return room;

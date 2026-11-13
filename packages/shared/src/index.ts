@@ -77,6 +77,58 @@ export interface Rundown {
   selectedId?: string;
 }
 
+// ───────────────────────── 账号 / 权限 / 审计 ─────────────────────────
+
+/**
+ * admin：全部权限（房间管理、设备配置、账号、审计）
+ * operator：播出与赛况操作；不能改设备配置（CasparCG / 计分器）、不能管理房间
+ * viewer：只读
+ */
+export type Role = "admin" | "operator" | "viewer";
+
+export interface UserInfo {
+  username: string;
+  role: Role;
+  /** "*" = 所有房间 */
+  rooms: "*" | string[];
+  mustChangePassword: boolean;
+  tokens: Array<{ id: string; label: string; createdAt: number; lastUsedAt?: number }>;
+}
+
+/** GET /api/auth/me */
+export interface Me {
+  /** 服务端关闭了鉴权（LIVECG_AUTH=off）：所有人都是管理员 */
+  authDisabled: boolean;
+  user: UserInfo;
+  /** 输出页令牌（仅管理员可见；未设置时为空） */
+  outputToken?: string;
+  /** 主备状态（M4b） */
+  node?: NodeStatus;
+}
+
+export interface AuditEntry {
+  ts: number;
+  user: string;
+  /** session / token:<名称> / anonymous / system */
+  via: string;
+  ip?: string;
+  room?: string;
+  action: string;
+  detail?: unknown;
+  ok: boolean;
+  error?: string;
+}
+
+/** 主备节点状态 */
+export interface NodeStatus {
+  /** active：正在承担播出；standby：备机，只镜像对端状态 */
+  role: "active" | "standby";
+  /** 配置的对端地址 */
+  peer?: string;
+  /** standby 时与对端的同步链路 */
+  link?: { connected: boolean; lastSyncAt?: number; message?: string };
+}
+
 /** 房间：一场独立的赛事（独立的比分、播出单、输出、数据接入） */
 export interface RoomInfo {
   /** URL 中使用的标识：小写字母、数字、连字符 */
