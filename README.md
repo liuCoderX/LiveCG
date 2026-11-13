@@ -92,6 +92,26 @@ curl -X POST http://localhost:3000/api/rooms/default/command -H "Authorization: 
 常用指令：`{"type":"rundown.fire","id":"<条目 id>"}`（热键同款上/下屏）、`{"type":"rundown.cue"}`、`{"type":"graphic.take"}`、`{"type":"graphic.clearAll"}`、`{"type":"graphic.update","layer":"caption","data":{"text":"…"}}`。
 条目 id 可在 `GET /api/rooms/<房间>/state` 的 `rundown.items` 中查到（不带房间的 `/api/command`、`/api/state` 仍可用，作用于默认房间）。Bitfocus Companion 用「Generic HTTP → POST」动作，加上 `Authorization: Bearer <令牌>` 请求头即可绑定到 Stream Deck 按键。令牌可随时在「我的账号」吊销。
 
+## 主备容灾（双机热备）
+
+两台机器各跑一个 LiveCG，互相指向对方：
+
+| 环境变量 | 主机（10.0.0.5） | 备机（10.0.0.6） |
+|---|---|---|
+| `LIVECG_PEER_URL` | `http://10.0.0.6:3000` | `http://10.0.0.5:3000` |
+| `LIVECG_REPLICATION_TOKEN` | 两台相同，至少 16 位 | 同左 |
+| `LIVECG_ROLE` | `primary` | `backup` |
+
+- **备机实时镜像主机**：所有房间的比分、播出单、在播图层、配置和账号。备机只读，不连 CasparCG、不监听计分器、不计时、不处理 CS2 数据。
+- **输出页自动切换**：主机生成的输出地址（房间页复制的、CasparCG 自动加载的）带 `&failover=<备机地址>`。主机宕机时，已经在 CasparCG / OBS 里运行的输出页会自动改连备机，画面不掉、不重播入场；模板在打开页面时就全部预加载好。
+- **接管是人工操作**：控制台顶部出现红色「备机 · 主机失联」时，由管理员在备机上点「接管为主机」。备机接管后开始驱动 CasparCG（沿用输出页的现有连接，不重新加载画面）、接收计分器和 CS2 数据。
+  不做自动接管：网络抖动或主机自行恢复时，自动接管容易造成两台同时驱动 CasparCG。
+- **原主机恢复**：重启后发现对端已是主机，会自动以备机身份加入并同步，不会出现双主。之后可在任一台的横幅上把播出「交给备机」，计划内倒换不中断。
+- **双主告警**：两台都处于主机状态时，控制台顶部会出现红色告警。
+- **数据源双发**：CS2 可以同时向两台发数据——把 `integrations/cs2/gamestate_integration_livecg_backup.cfg` 也放进 cfg 目录并改成备机地址（备机在接管前会忽略这些数据）。计分器桥接程序同样建议同时发到两台的 UDP 端口。
+
+> 备机上不能修改账号和密码（账号从主机同步）；登录会话不同步，切到备机的控制台需要重新登录。
+
 ## 接入 CasparCG
 
 1. 控制台右侧「CasparCG」中勾选启用，填写 CasparCG 地址和 AMCP 端口（默认 5250）。

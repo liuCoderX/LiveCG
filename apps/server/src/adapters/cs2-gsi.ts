@@ -82,6 +82,26 @@ export class Cs2Adapter {
     this.clutchRound = -1;
   }
 
+  /**
+   * 备机升主：适配器在备机上从未运行过，用镜像来的比赛状态恢复内部记忆，
+   * 否则下一帧会从「CT = 主队」重新猜，下半场会把主客队对调。
+   */
+  restore(extra: Partial<Cs2Extra> | undefined): void {
+    if (!extra?.sides) return;
+    this.ctTeam = extra.sides.home === "CT" ? "home" : "away";
+    this.roster.clear();
+    for (const p of extra.players ?? []) this.roster.set(p.steamid, p.team);
+    this.history = [...(extra.roundHistory ?? [])];
+    this.killfeed = [...(extra.killfeed ?? [])];
+    this.lastRound = extra.lastRound;
+    // ADR 只能近似恢复：已观测回合数取回合历史长度
+    const rounds = this.history.length;
+    this.dmg.clear();
+    if (rounds) for (const p of extra.players ?? []) this.dmg.set(p.steamid, { total: p.adr * rounds, rounds });
+    // 不恢复 prev：第一帧不推导事件，避免把恢复点和第一帧之间的差异当成击杀
+    this.prev = undefined;
+  }
+
   /** 手动交换（自动识别出错时兜底），返回用最后一帧重新计算的 patch */
   swapSides(): IngestResult | null {
     this.ctTeam = other(this.ctTeam);

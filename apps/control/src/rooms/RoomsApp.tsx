@@ -4,6 +4,7 @@ import { api } from "../lib/api.ts";
 import { useInterval } from "../lib/hooks.ts";
 import { useToast } from "../lib/toast.tsx";
 import { PageHeader, useMe } from "../lib/auth.tsx";
+import { isStandby, useNode } from "../lib/node.tsx";
 
 const SPORT: Record<string, string> = { cs2: "CS2", football: "足球", basketball: "篮球", generic: "通用" };
 const DEV: Record<string, [string, string]> = {
@@ -15,7 +16,8 @@ const DEV: Record<string, [string, string]> = {
 export function RoomsApp() {
   const toast = useToast();
   const me = useMe();
-  const isAdmin = me.user.role === "admin";
+  const node = useNode();
+  const isAdmin = me.user.role === "admin" && !isStandby(node);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
@@ -52,6 +54,7 @@ export function RoomsApp() {
               room={r}
               isAdmin={isAdmin}
               outputToken={me.outputToken}
+              failover={node?.peer}
               open={open.has(r.id)}
               onToggle={(v) => setOpen((cur) => { const n = new Set(cur); v ? n.add(r.id) : n.delete(r.id); return n; })}
               onRename={() => {
@@ -109,18 +112,19 @@ function CreateRoom({ rooms, onCreated }: { rooms: RoomSummary[]; onCreated: () 
   );
 }
 
-function RoomCard({ room: r, isAdmin, outputToken, open, onToggle, onRename, onDelete }: {
-  room: RoomSummary; isAdmin: boolean; outputToken?: string; open: boolean; onToggle: (v: boolean) => void; onRename: () => void; onDelete: () => void;
+function RoomCard({ room: r, isAdmin, outputToken, failover, open, onToggle, onRename, onDelete }: {
+  room: RoomSummary; isAdmin: boolean; outputToken?: string; failover?: string; open: boolean; onToggle: (v: boolean) => void; onRename: () => void; onDelete: () => void;
 }) {
   const toast = useToast();
   const q = encodeURIComponent(r.id);
   const origin = location.origin;
+  const extra = `${outputToken ? `&token=${encodeURIComponent(outputToken)}` : ""}${failover ? `&failover=${encodeURIComponent(failover)}` : ""}`;
   const cs2Live = r.cs2LastFrameAt && Date.now() - r.cs2LastFrameAt < 15_000;
   const urls: Array<[string, string]> = [
     ["控制台", `${origin}/control/?room=${q}`],
-    // 设置了输出令牌时，输出页地址要带上它（仅管理员能看到令牌）
-    ["PGM 输出", `${origin}/graphics/?room=${q}&channel=pgm${outputToken ? `&token=${encodeURIComponent(outputToken)}` : ""}`],
-    ["PVW 输出", `${origin}/graphics/?room=${q}&channel=pvw${outputToken ? `&token=${encodeURIComponent(outputToken)}` : ""}`],
+    // 设置了输出令牌时，输出页地址要带上它（仅管理员能看到令牌）；配置了主备时带上对端，主机断线自动改连
+    ["PGM 输出", `${origin}/graphics/?room=${q}&channel=pgm${extra}`],
+    ["PVW 输出", `${origin}/graphics/?room=${q}&channel=pvw${extra}`],
     ["CS2 GSI", `${origin}/gsi/cs2/${q}`],
     ["指令 API", `${origin}/api/rooms/${q}/command`],
   ];

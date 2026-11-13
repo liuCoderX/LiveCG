@@ -1,4 +1,4 @@
-import type { ClientMessage, GameEvent } from "@livecg/shared";
+import type { AppState, ClientMessage, Cs2Extra, GameEvent } from "@livecg/shared";
 import { Store, type StoreSeed } from "./store.ts";
 import { Cs2Adapter, type IngestResult } from "./adapters/cs2-gsi.ts";
 import { DelayQueue } from "./delay-queue.ts";
@@ -23,37 +23,72 @@ export class Room {
   private scoreboard: ScoreboardInput;
   private stopPersist?: () => void;
   private eventListeners = new Set<(e: GameEvent) => void>();
+  /**
+   * 主机（active）：运行全部服务。备机（standby）：只镜像主机推来的状态并落盘，
+   * 不连 CasparCG、不监听计分器、不计时、不处理 CS2 数据。
+   */
+  private active = false;
 
   constructor(
     readonly id: string,
     private file: string | undefined,
     seed: StoreSeed,
-    options: { outputToken?: string } = {},
+    options: { outputToken?: string; failoverUrl?: string | (() => string | undefined) } = {},
   ) {
     this.store = new Store({ ...seed, room: { id, name: seed.room?.name ?? id } });
     const s = this.store;
     this.cs2 = new Cs2Adapter(() => ({ home: s.get().match.home.name, away: s.get().match.away.name }));
     this.cs2Delay = new DelayQueue(() => s.get().config.cs2DelayMs);
     this.rules = createRules(s);
-    this.caspar = new CasparClient(s, { outputToken: options.outputToken });
+    this.caspar = new CasparClient(s, { outputToken: options.outputToken, failoverUrl: options.failoverUrl });
     this.sports = new SportsController(s, (e) => this.emit(e));
+    this.sports.suspend();
     this.scoreboard = new ScoreboardInput(s, (i) => (this.sports.preset ? periodAt(this.sports.preset, i) : undefined));
   }
 
+  /** 单机：落盘 + 启动全部服务 */
   start(): void {
-    if (this.file) this.stopPersist = persistTo(this.store, this.file);
-    this.caspar.start();
-    this.scoreboard.start();
+    this.startPersistence();
+    this.setActive(true);
+  }
+
+  startPersistence(): void {
+    if (this.file && !this.stopPersist) this.stopPersist = persistTo(this.store, this.file);
+  }
+
+  get isActive(): boolean {
+    return this.active;
+  }
+
+  /** 主备切换：启动 / 停止设备连接与定时器 */
+  setActive(active: boolean, opts: { adopt?: boolean } = {}): void {
+    if (active === this.active) return;
+    this.active = active;
+    if (active) {
+      const m = this.store.get().match;
+      if (m.sport === "cs2") this.cs2.restore(m.extra as unknown as Partial<Cs2Extra>);
+      this.sports.resume();
+      this.caspar.start({ adopt: opts.adopt });
+      this.scoreboard.start();
+    } else {
+      this.caspar.stop();
+      this.scoreboard.stop();
+      this.sports.suspend();
+      this.cs2Delay.clear();
+    }
+  }
+
+  /** 备机：用主机推来的完整状态替换本地状态 */
+  mirror(state: AppState): void {
+    this.store.replaceState({ ...state, room: { id: this.id, name: state.room.name } });
   }
 
   /** 停止所有后台服务（CasparCG 连接、UDP 监听、定时器），并把未写盘的改动写盘 */
   stop(): void {
+    this.setActive(false);
     this.stopPersist?.();
     this.stopPersist = undefined;
-    this.caspar.stop();
-    this.scoreboard.stop();
     this.sports.dispose();
-    this.cs2Delay.clear();
   }
 
   onEvent(fn: (e: GameEvent) => void): () => void {
@@ -75,6 +110,8 @@ export class Room {
 
   /** CS2 GSI 帧：先进延迟缓冲再解析，保证事件与状态同步延迟 */
   ingestCs2(payload: unknown): void {
+    // 备机不处理：CS2 可以同时把数据发给主备两台（两个 cfg 文件），以主机为准
+    if (!this.active) return;
     this.cs2Delay.push(() => this.applyIngest(this.cs2.ingest(payload)));
   }
 

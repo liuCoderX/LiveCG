@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
+import { HaController, type HaOptions } from "./ha.ts";
 import type { ClientMessage, Me, ServerMessage } from "@livecg/shared";
 import { RoomError, RoomManager } from "./rooms.ts";
 import type { Room } from "./room.ts";
@@ -25,6 +26,8 @@ export interface AppOptions {
     /** 设置后，未登录的输出页需要在地址上带 ?token= 才能读取状态 */
     outputToken?: string;
   };
+  /** 主备：不配置则为单机 */
+  ha?: Omit<HaOptions, "dataDir">;
 }
 
 const MIME: Record<string, string> = {
@@ -159,11 +162,15 @@ export function createApp(opts: AppOptions) {
   // ───────────── 房间 ─────────────
   interface ClientInfo { room: string; role: string; creds: Credentials; ip: string }
   const clients = new Map<WebSocket, ClientInfo>();
+  const peerUrl = () => (opts.ha ? (typeof opts.ha.peerUrl === "function" ? opts.ha.peerUrl() : opts.ha.peerUrl).replace(/\/+$/, "") : undefined);
   const rooms = new RoomManager(opts.dataDir, (id) => {
     const c = { control: 0, graphics: 0 };
     for (const info of clients.values()) if (info.room === id && (info.role === "control" || info.role === "graphics")) c[info.role]++;
     return c;
-  }, { outputToken });
+  }, { outputToken, failoverUrl: peerUrl });
+  // 配置了主备时先以备机方式加载（不连设备），由 ha.start() 决定是否升为主机，
+  // 避免重启的备机在判定角色前抢先向 CasparCG 发 PLAY
+  if (opts.ha) rooms.setActive(false);
 
   const send = (ws: WebSocket, msg: ServerMessage) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(msg));
   const roomClients = (id: string) => [...clients].filter(([, info]) => info.room === id).map(([ws]) => ws);
@@ -183,6 +190,10 @@ export function createApp(opts: AppOptions) {
   });
   rooms.load();
   for (const id of rooms.ids()) wire(rooms.require(id));
+  const ha = new HaController(rooms, users, opts.ha ? { ...opts.ha, dataDir: opts.dataDir } : undefined);
+  const requireActiveNode = () => {
+    if (!ha.isActive) throw new HttpError("这台是备机：账号等数据从主机同步，请在主机上修改", 409);
+  };
 
   /** 房间指令的唯一入口（WebSocket 与 HTTP 共用）：权限检查 → 执行 → 审计 */
   const runCommand = (p: Principal, room: string, msg: ClientMessage, ip: string) => {
@@ -212,7 +223,12 @@ export function createApp(opts: AppOptions) {
       if (!file.startsWith(dir + sep)) break;
       try {
         if (!(await stat(file)).isFile()) break;
-        res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache" });
+        res.writeHead(200, {
+          "content-type": MIME[extname(file)] ?? "application/octet-stream",
+          "cache-control": "no-cache",
+          // 输出页的模板是 ES Module：主备切换后输出页会从对端加载模板，跨源加载模块需要 CORS
+          ...(prefix === "/graphics/" ? { "access-control-allow-origin": "*" } : {}),
+        });
         res.end(await readFile(file));
         return true;
       } catch {
@@ -236,7 +252,12 @@ export function createApp(opts: AppOptions) {
     const user = stored
       ? publicUser(stored)
       : { username: p.username, role: p.role, rooms: p.rooms, mustChangePassword: false, tokens: [] };
-    return { authDisabled: !authEnabled, user, ...(p.role === "admin" && outputToken ? { outputToken } : {}) };
+    return {
+      authDisabled: !authEnabled,
+      user,
+      ...(p.role === "admin" && outputToken ? { outputToken } : {}),
+      ...(ha.enabled ? { node: ha.status() } : {}),
+    };
   };
 
   const server: Server = createServer(async (req, res) => {
@@ -257,6 +278,42 @@ export function createApp(opts: AppOptions) {
         room.ingestCs2(payload);
         res.writeHead(200).end();
         return;
+      }
+
+      // ───── 主备 ─────
+      if (url.startsWith("/api/ha/")) {
+        const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? "")?.[1];
+        const fromPeer = ha.checkToken(bearer);
+        const who = fromPeer ? { username: "peer", via: "replication" } : (() => {
+          const p = resolve(credentialsOf(req));
+          return { username: p.username, via: p.via, p };
+        })();
+        const asAdmin = () => {
+          if (!fromPeer) requireAdmin((who as { p: ReturnType<typeof resolve> }).p);
+        };
+        if (method === "GET" && url === "/api/ha/status") {
+          if (!fromPeer) requireUser((who as { p: ReturnType<typeof resolve> }).p);
+          return json(res, 200, ha.status());
+        }
+        if (!ha.enabled) throw new HttpError("未配置主备（LIVECG_PEER_URL）", 400);
+        if (method === "POST" && url === "/api/ha/promote") {
+          asAdmin();
+          const r = await ha.promote();
+          audit.write({ user: who.username, via: who.via, ip, action: "ha.promote", detail: r, ok: true });
+          return json(res, 200, { ok: true, ...r, node: ha.status() });
+        }
+        if (method === "POST" && url === "/api/ha/demote") {
+          asAdmin();
+          ha.demote();
+          audit.write({ user: who.username, via: who.via, ip, action: "ha.demote", ok: true });
+          return json(res, 200, { ok: true, node: ha.status() });
+        }
+        if (method === "POST" && url === "/api/ha/handover") {
+          asAdmin();
+          await ha.handover();
+          audit.write({ user: who.username, via: who.via, ip, action: "ha.handover", ok: true });
+          return json(res, 200, { ok: true });
+        }
       }
 
       // 公开信息
@@ -299,6 +356,7 @@ export function createApp(opts: AppOptions) {
         if (method === "GET" && url === "/api/auth/me") return json(res, 200, me(requireUser(p, { allowMustChange: true })));
         if (method === "POST" && url === "/api/auth/password") {
           requireUser(p, { allowMustChange: true });
+          requireActiveNode();
           if (!authEnabled) throw new HttpError("未开启鉴权", 400);
           const body = await readJson<{ current?: string; next?: string }>(req);
           users.changeOwnPassword(p.username, String(body.current ?? ""), String(body.next ?? ""));
@@ -309,6 +367,7 @@ export function createApp(opts: AppOptions) {
         }
         if (method === "POST" && url === "/api/auth/tokens") {
           requireUser(p);
+          requireActiveNode();
           if (p.via !== "session") throw new HttpError("只能在控制台里创建令牌", 403);
           const body = await readJson<{ label?: string }>(req);
           const { token, info } = users.createToken(p.username, body.label);
@@ -318,6 +377,7 @@ export function createApp(opts: AppOptions) {
         m = /^\/api\/auth\/tokens\/([^/]+)$/.exec(url);
         if (method === "DELETE" && m) {
           requireUser(p);
+          requireActiveNode();
           users.revokeToken(p.username, decodeURIComponent(m[1]));
           audit.write({ user: p.username, via: p.via, ip, action: "auth.token.revoke", detail: { id: m[1] }, ok: true });
           return json(res, 200, { ok: true });
@@ -333,6 +393,7 @@ export function createApp(opts: AppOptions) {
         requireAdmin(p);
         if (method === "GET") return json(res, 200, users.list().map(publicUser));
         if (method === "POST") {
+          requireActiveNode();
           const body = await readJson(req);
           const u = users.create({ username: body.username, password: body.password, role: body.role, rooms: body.rooms });
           audit.write({ user: p.username, via: p.via, ip, action: "user.create", detail: { username: u.username, role: u.role, rooms: u.rooms }, ok: true });
@@ -343,6 +404,7 @@ export function createApp(opts: AppOptions) {
       if (m) {
         requireAdmin(p);
         const name = decodeURIComponent(m[1]);
+        if (method !== "GET") requireActiveNode();
         if (method === "PATCH") {
           const body = await readJson(req);
           const u = users.update(name, { role: body.role, rooms: body.rooms, password: body.password });
@@ -435,7 +497,21 @@ export function createApp(opts: AppOptions) {
 
   // ───────────── WebSocket：/ws?room=<id> ─────────────
   // 未登录的连接（输出页）只读；登录的控制台按账号权限执行指令。
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({ noServer: true });
+  const haWss = new WebSocketServer({ noServer: true });
+  server.on("upgrade", (req, socket, head) => {
+    const path = (req.url ?? "").split("?")[0];
+    if (path === "/ws") return wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+    if (path === "/ha") {
+      const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? "")?.[1];
+      if (!ha.checkToken(bearer)) {
+        socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+        return socket.destroy();
+      }
+      return haWss.handleUpgrade(req, socket, head, (ws) => ha.serveReplica(ws));
+    }
+    socket.destroy();
+  });
   wss.on("connection", (ws, req) => {
     const params = new URL(req.url ?? "/ws", "http://x").searchParams;
     const id = params.get("room") || DEFAULT_ROOM.id;
@@ -486,14 +562,17 @@ export function createApp(opts: AppOptions) {
     rooms,
     users,
     audit,
+    ha,
     listen(port: number): Promise<number> {
       return new Promise((resolvePort) => server.listen(port, () => resolvePort((server.address() as { port: number }).port)));
     },
     close(): Promise<void> {
+      ha.stop();
       rooms.stopAll();
       sessions.flush();
       for (const ws of clients.keys()) ws.terminate();
       wss.close();
+      haWss.close();
       return new Promise((r) => server.close(() => r()));
     },
   };

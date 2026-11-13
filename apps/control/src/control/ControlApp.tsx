@@ -6,6 +6,7 @@ import { storage } from "../lib/hooks.ts";
 import { useToast } from "../lib/toast.tsx";
 import { roleLabel, useMe } from "../lib/auth.tsx";
 import { ROOM } from "../lib/live.ts";
+import { isStandby, NodeBanner, useNode } from "../lib/node.tsx";
 import { describeEvent } from "./describe.ts";
 import { Header } from "./Header.tsx";
 import { Rundown } from "./Rundown.tsx";
@@ -22,7 +23,8 @@ export function ControlApp() {
   const me = useMe();
   const role = me.user.role;
   const inScope = role === "admin" || me.user.rooms === "*" || me.user.rooms.includes(ROOM);
-  const readOnly = role === "viewer" || !inScope;
+  const standby = isStandby(useNode());
+  const readOnly = role === "viewer" || !inScope || standby;
   const templates = useTemplates();
   const [log, setLog] = useState<LogLine[]>([]);
   const stateRef = useRef<AppState>();
@@ -66,7 +68,8 @@ export function ControlApp() {
       <div id="roomGone" role="alert" style={{ display: roomGone ? "block" : "none" }}>
         这个房间不存在或已被删除。<a href="/control/rooms.html" style={{ color: "#fff" }}>去房间管理</a>
       </div>
-      {readOnly && (
+      <NodeBanner />
+      {readOnly && !standby && (
         <div className="readonly-note" id="readonlyNote" role="status">
           {inScope ? `当前账号为${roleLabel(role)}，只能查看，不能操作。` : `账号「${me.user.username}」没有房间「${ROOM}」的权限，只能查看画面。`}
         </div>

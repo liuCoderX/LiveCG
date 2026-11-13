@@ -94,9 +94,13 @@ export class ScoreboardInput {
 
   stop(): void {
     this.unsubscribe?.();
+    this.unsubscribe = undefined;
     clearInterval(this.staleTimer);
     this.sock?.close();
     this.sock = undefined;
+    // 允许再次 start()（备机升主）时重新绑定端口
+    this.boundKey = "";
+    if (this.store.get().outputs.scoreboard.status !== "disabled") this.setStatus({ status: "disabled", message: undefined });
   }
 
   private sync(): void {

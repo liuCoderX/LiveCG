@@ -71,3 +71,12 @@ table.grid code { font-size: 12px; color: var(--muted); word-break: break-all; }
 .login label { font-size: 13px; }
 .login button[type=submit] { padding: 9px 12px; }
 .error-text { color: #ffb4b4; font-size: 13px; margin: 0; }
+
+/* 主备横幅 */
+.node-banner { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 8px 20px; font-size: 13px; }
+.node-banner b { white-space: nowrap; }
+.node-banner span { flex: 1; min-width: 200px; }
+.node-banner.active { background: #16301f; color: #c8f2d4; }
+.node-banner.standby { background: #3a2f12; color: #ffe2a8; }
+.node-banner.lost { background: var(--live); color: #fff; }
+.node-banner.lost button { background: #fff; color: #b3261e; border-color: #fff; font-weight: 800; padding: 6px 16px; }

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import type { AppConfig, ClientMessage, RoomSummary } from "@livecg/shared";
+import type { AppConfig, AppState, ClientMessage, RoomSummary } from "@livecg/shared";
 import { Room } from "./room.ts";
 import { DEFAULT_ROOM, deepMerge, type StoreSeed } from "./store.ts";
 import { loadSeed } from "./persist.ts";
@@ -30,12 +30,14 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
   private roomsDir: string;
   private listeners = new Set<(event: "created" | "deleted", room: Room) => void>();
+  /** 本节点是否为主机（单机部署永远是 true） */
+  private active = true;
 
   constructor(
     private dataDir: string | undefined,
     /** 每个房间的在线客户端数（由 WebSocket 层提供） */
     private clientCount: (id: string) => { control: number; graphics: number } = () => ({ control: 0, graphics: 0 }),
-    private roomOptions: { outputToken?: string } = {},
+    private roomOptions: { outputToken?: string; failoverUrl?: string | (() => string | undefined) } = {},
   ) {
     this.roomsDir = dataDir ? join(dataDir, "rooms") : "";
   }
@@ -76,8 +78,41 @@ export class RoomManager {
     const seed = { ...(file ? loadSeed(file, id) : {}), ...(seedOverride ?? {}) };
     const room = new Room(id, file, seed, this.roomOptions);
     this.rooms.set(id, room);
-    room.start();
+    room.startPersistence();
+    if (this.active) room.setActive(true);
     return room;
+  }
+
+  get isActive(): boolean {
+    return this.active;
+  }
+
+  /** 主备切换：所有房间一起启动 / 停止服务 */
+  setActive(active: boolean, opts: { adopt?: boolean } = {}): void {
+    this.active = active;
+    for (const room of this.rooms.values()) room.setActive(active, opts);
+  }
+
+  private requireActive(): void {
+    if (!this.active) throw new RoomError("这台是备机：画面与主机同步，只能查看。主机故障时请由管理员点「接管为主机」", 409);
+  }
+
+  /** 备机镜像：房间不存在就以备机方式创建，然后整体替换状态 */
+  mirror(state: AppState): void {
+    const id = state.room.id;
+    if (!ROOM_ID_RE.test(id)) return;
+    let room = this.rooms.get(id);
+    if (!room) {
+      room = this.open(id, { room: { id, name: state.room.name } });
+      for (const fn of this.listeners) fn("created", room);
+    }
+    room.mirror(state);
+  }
+
+  /** 备机镜像：主机上已删除的房间，本机也删除（数据文件同样保留为 .deleted 备份） */
+  mirrorDelete(id: string): void {
+    if (id === DEFAULT_ROOM.id || !this.rooms.has(id)) return;
+    this.remove(id);
   }
 
   get(id: string | undefined | null): Room | undefined {
@@ -116,6 +151,7 @@ export class RoomManager {
   }
 
   create(input: CreateRoomInput): Room {
+    this.requireActive();
     const name = String(input.name ?? "").trim();
     if (!name) throw new RoomError("请填写房间名称");
     if (name.length > 40) throw new RoomError("房间名称不能超过 40 个字符");
@@ -140,6 +176,7 @@ export class RoomManager {
   }
 
   rename(id: string, name: string): Room {
+    this.requireActive();
     const room = this.require(id);
     const n = String(name ?? "").trim();
     if (!n) throw new RoomError("请填写房间名称");
@@ -150,10 +187,16 @@ export class RoomManager {
 
   /** 删除房间：数据文件改名保留（可人工恢复），不做物理删除 */
   delete(id: string): void {
+    this.requireActive();
     if (id === DEFAULT_ROOM.id) throw new RoomError("默认房间不能删除");
     const room = this.require(id);
     const s = room.store.get();
     if (Object.values(s.layers).some((l) => l.visible)) throw new RoomError("该房间还有图文在 PGM 上，请先全部下屏", 409);
+    this.remove(id);
+  }
+
+  private remove(id: string): void {
+    const room = this.require(id);
     room.stop();
     this.rooms.delete(id);
     const file = this.fileFor(id);
@@ -167,6 +210,7 @@ export class RoomManager {
 
   /** 房间级指令入口：设备配置变更先做跨房间冲突检查 */
   handleCommand(id: string, msg: ClientMessage): void {
+    this.requireActive();
     const room = this.require(id);
     if (msg.type === "config.set") this.validateConfig(id, deepMerge(room.store.get().config, msg.patch));
     room.handleCommand(msg);

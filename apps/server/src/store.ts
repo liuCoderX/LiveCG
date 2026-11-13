@@ -118,6 +118,15 @@ export class Store {
     this.commit({ ...this.state, match: fn(this.state.match) });
   }
 
+  /**
+   * 主备同步：用对端推来的完整状态替换本地（outputs 保留本机的设备状态）。
+   * takeSeq 跟到镜像里最大的 takeId，升主后新的上屏不会和已在屏的撞号（撞号会让输出页以为是同一次上屏、不播入场）。
+   */
+  replaceState(next: AppState): void {
+    for (const l of [...Object.values(next.layers), ...Object.values(next.preview)]) this.takeSeq = Math.max(this.takeSeq, l.takeId ?? 0);
+    this.commit({ ...next, outputs: this.state.outputs });
+  }
+
   setRoom(room: RoomInfo): void {
     this.commit({ ...this.state, room });
   }

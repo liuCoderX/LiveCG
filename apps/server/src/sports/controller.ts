@@ -40,6 +40,8 @@ export class SportsController {
   private shotTimer?: NodeJS.Timeout;
   private lastSource?: string;
   private unsubscribe: () => void;
+  /** 备机：不挂任何定时器（时钟由主机推送的状态驱动） */
+  private suspended = false;
 
   constructor(
     private store: Store,
@@ -60,6 +62,18 @@ export class SportsController {
     this.unsubscribe();
     clearTimeout(this.clockTimer);
     clearTimeout(this.shotTimer);
+  }
+
+  suspend(): void {
+    this.suspended = true;
+    clearTimeout(this.clockTimer);
+    clearTimeout(this.shotTimer);
+  }
+
+  /** 升主后：按当前（镜像来的）时钟重新挂归零定时器 */
+  resume(): void {
+    this.suspended = false;
+    this.schedule();
   }
 
   get externalClock(): boolean {
@@ -246,7 +260,7 @@ export class SportsController {
   private schedule(): void {
     clearTimeout(this.clockTimer);
     clearTimeout(this.shotTimer);
-    if (this.externalClock) return;
+    if (this.externalClock || this.suspended) return;
     const m = this.match;
     const left = msUntilZero(m.clock, this.now());
     if (left !== undefined) this.clockTimer = setTimeout(() => this.onClockZero(), left);

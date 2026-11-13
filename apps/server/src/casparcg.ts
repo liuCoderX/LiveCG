@@ -24,25 +24,38 @@ export class CasparClient {
   private awaitingVersion = false;
   private retryTimer?: NodeJS.Timeout;
   private retryMs = 1000;
-  private stopped = false;
+  private stopped = true;
   private unsubscribe?: () => void;
+  /**
+   * 接管模式（备机升主时）：CasparCG 上的输出页已经自己故障切换到本机，
+   * 第一次连上时只登记为「已加载」、不重新 PLAY，避免画面闪一下。操作员点「重连」可强制重载。
+   */
+  private adopt = false;
 
-  constructor(private store: Store, private options: { outputToken?: string } = {}) {}
+  constructor(private store: Store, private options: { outputToken?: string; failoverUrl?: string | (() => string | undefined) } = {}) {}
 
-  start(): void {
+  start(opts: { adopt?: boolean } = {}): void {
+    if (!this.stopped) return;
+    this.stopped = false;
+    this.adopt = !!opts.adopt;
+    this.connKey = "";
     this.unsubscribe = this.store.subscribe(() => this.sync());
     this.sync();
   }
 
   stop(): void {
+    if (this.stopped) return;
     this.stopped = true;
     this.unsubscribe?.();
     clearTimeout(this.retryTimer);
-    this.sock?.destroy();
+    this.teardown();
+    this.connKey = "";
+    this.setStatus({ status: "disabled", message: undefined, loaded: [] });
   }
 
   /** 控制台「重连」：断开后立即重连，并重新加载全部输出 */
   reconnect(): void {
+    this.adopt = false;
     this.connKey = "";
     this.sock?.destroy();
     this.sync();
@@ -52,9 +65,11 @@ export class CasparClient {
     return this.store.get().config.casparcg;
   }
 
-  static urlFor(cfg: CasparConfig, out: CasparOutput, roomId: string, outputToken?: string): string {
+  static urlFor(cfg: CasparConfig, out: CasparOutput, roomId: string, outputToken?: string, failoverUrl?: string): string {
     const token = outputToken ? `&token=${encodeURIComponent(outputToken)}` : "";
-    return `${cfg.baseUrl.replace(/\/+$/, "")}/graphics/?room=${encodeURIComponent(roomId)}&channel=${out.source}${token}`;
+    // 主备：输出页在本机断线时自动改连对端
+    const failover = failoverUrl ? `&failover=${encodeURIComponent(failoverUrl)}` : "";
+    return `${cfg.baseUrl.replace(/\/+$/, "")}/graphics/?room=${encodeURIComponent(roomId)}&channel=${out.source}${token}${failover}`;
   }
 
   private sync(): void {
@@ -118,7 +133,7 @@ export class CasparClient {
     const cfg = this.cfg;
     const roomId = this.store.get().room.id;
     const desired = new Map(
-      cfg.outputs.filter((o) => o.enabled).map((o) => [o.id, { target: `${o.channel}-${o.layer}`, url: CasparClient.urlFor(cfg, o, roomId, this.options.outputToken) }]),
+      cfg.outputs.filter((o) => o.enabled).map((o) => [o.id, { target: `${o.channel}-${o.layer}`, url: CasparClient.urlFor(cfg, o, roomId, this.options.outputToken, typeof this.options.failoverUrl === "function" ? this.options.failoverUrl() : this.options.failoverUrl) }]),
     );
     const desiredTargets = new Set([...desired.values()].map((d) => d.target));
     for (const [id, cur] of this.loaded) {
@@ -130,9 +145,10 @@ export class CasparClient {
     }
     for (const [id, want] of desired) {
       if (this.loaded.has(id)) continue;
-      this.send(`PLAY ${want.target} [HTML] "${want.url}"`);
+      if (!this.adopt) this.send(`PLAY ${want.target} [HTML] "${want.url}"`);
       this.loaded.set(id, want);
     }
+    this.adopt = false;
     const loaded = [...this.loaded.keys()];
     if (loaded.join() !== this.store.get().outputs.casparcg.loaded.join()) this.setStatus({ loaded });
   }

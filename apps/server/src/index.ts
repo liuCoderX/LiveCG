@@ -16,9 +16,23 @@ const app = createApp({
     initialAdminPassword: process.env.LIVECG_ADMIN_PASSWORD,
     outputToken: process.env.LIVECG_OUTPUT_TOKEN,
   },
+  ...(process.env.LIVECG_PEER_URL
+    ? {
+        ha: {
+          peerUrl: process.env.LIVECG_PEER_URL,
+          token: process.env.LIVECG_REPLICATION_TOKEN ?? "",
+          role: process.env.LIVECG_ROLE === "backup" ? ("backup" as const) : ("primary" as const),
+        },
+      }
+    : {}),
 });
+if (process.env.LIVECG_PEER_URL && (process.env.LIVECG_REPLICATION_TOKEN ?? "").length < 16) {
+  console.error("[livecg] 配置了 LIVECG_PEER_URL 时必须设置至少 16 位的 LIVECG_REPLICATION_TOKEN（两台机器相同）");
+  process.exit(1);
+}
 if (!authEnabled) console.warn("[livecg] ⚠ 鉴权已关闭（LIVECG_AUTH=off）：任何能访问本服务的人都有管理员权限，仅限本机开发使用");
 const port = await app.listen(PORT);
+await app.ha.start();
 
 console.log(`[livecg] server on http://localhost:${port}`);
 console.log(`[livecg] rooms         : http://localhost:${port}/control/rooms.html  (${app.rooms.ids().join(", ")})`);

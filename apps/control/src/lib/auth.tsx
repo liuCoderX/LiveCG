@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Me, Role } from "@livecg/shared";
 import { api } from "./api.ts";
+import { NodeBanner, NodeProvider } from "./node.tsx";
 
 const ROLE_LABEL: Record<Role, string> = { admin: "管理员", operator: "导播", viewer: "只读" };
 export const roleLabel = (r: Role) => ROLE_LABEL[r] ?? r;
@@ -34,7 +35,11 @@ export function RequireLogin({ children, role }: { children: ReactNode; role?: R
   if (role === "admin" && me.user.role !== "admin") {
     return <p className="hint" style={{ padding: 20 }}>此页面需要管理员权限。<a href="/control/rooms.html">返回房间列表</a></p>;
   }
-  return <Ctx.Provider value={me}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={me}>
+      <NodeProvider>{children}</NodeProvider>
+    </Ctx.Provider>
+  );
 }
 
 export async function logout() {
@@ -59,11 +64,14 @@ export function UserMenu() {
 /** 房间管理 / 账号 / 审计页共用的页头 */
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
+    <>
     <header>
       <h1>{title}</h1>
       {subtitle && <span className="hint" style={{ margin: 0 }}>{subtitle}</span>}
       <span style={{ flex: 1 }} />
       <UserMenu />
     </header>
+    <NodeBanner />
+    </>
   );
 }

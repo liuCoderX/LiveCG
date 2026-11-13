@@ -38,16 +38,42 @@
   const stage = document.getElementById("stage");
   const templates = new Map();
   /** 模板模块：{ meta, css, render, tick?, in?, out? }，css 首次加载时注入一次 */
+  // 模板来源：本页所在服务器优先；主备部署时（?failover=）本机宕掉后从备机加载
+  const templateBases = [
+    new URL("./templates/", location.href).href,
+    ...(params.get("failover") ?? "").split(",").map((s) => s.trim()).filter(Boolean).flatMap((u) => {
+      try { return [new URL("/graphics/templates/", u).href]; } catch { return []; }
+    }),
+  ];
+  const importTemplate = async (name) => {
+    let lastErr;
+    for (const base of templateBases) {
+      try {
+        return await import(`${base}${name}.js`);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
+  };
   const loadTemplate = (name) => {
     if (!templates.has(name)) {
-      templates.set(name, import(`./templates/${name}.js`).then((m) => {
+      const p = importTemplate(name).then((m) => {
         const tpl = m.default;
         if (tpl.css) document.head.appendChild(Object.assign(document.createElement("style"), { textContent: tpl.css }));
         return tpl;
-      }));
+      });
+      // 加载失败不缓存，下次可以重试（例如服务器刚好在重启）
+      p.catch(() => templates.delete(name));
+      templates.set(name, p);
     }
     return templates.get(name);
   };
+  // 打开页面时预加载全部模板：首次上屏不用等网络；主机宕机后已加载的模板仍可用
+  fetch(new URL("/api/templates", location.href))
+    .then((r) => r.json())
+    .then((names) => names.forEach((n) => loadTemplate(n).catch(() => {})))
+    .catch(() => {});
 
   // 时钟（主时钟 clock、进攻时钟 shotClock）：用本机收到该锚点的时刻插值，
   // 不依赖服务器与播出机的系统时间一致
