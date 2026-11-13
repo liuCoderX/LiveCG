@@ -8,10 +8,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @livecg/server dev",
-    "start": "pnpm --filter @livecg/server start",
-    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm --filter @livecg/control build",
+    "start": "pnpm build && pnpm --filter @livecg/server start",
+    "dev": "pnpm --parallel --filter @livecg/control --filter @livecg/server dev",
     "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r typecheck",
     "sim:cs2": "pnpm --filter @livecg/server sim:cs2",
     "sim:scoreboard": "pnpm --filter @livecg/server sim:scoreboard"
   }

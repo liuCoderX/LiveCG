@@ -60,7 +60,7 @@
 |---|---|---|
 | 语言 | TypeScript（前后端统一） | 协议类型共享（`packages/shared`），减少前后端字段不一致的事故 |
 | 服务端 | Node.js 22 + `ws`（MVP 用原生 http；后续可迁到 Fastify） | I/O 密集、实时推送场景合适，生态覆盖 GSI/串口/UDP/OSC |
-| 控制台 | MVP 原生 HTML → 后续 React + Vite | 复杂表单、Rundown 列表、快捷键、多人协作 |
+| 控制台 | React 18 + TypeScript + Vite（M4b 起；此前为原生 HTML） | 与服务端共用 `@livecg/shared` 的协议类型，指令字段写错在编译期就能发现；模板元数据仍在运行时加载，新增模板无需重新构建 |
 | 模板 | HTML/CSS/JS ES Module，动画用 GSAP 或 CSS | 每个模板只需实现 `render(el, ctx)`，后续加 `in()/out()` 动画钩子 |
 | 播出 | CasparCG（专业 SDI Fill/Key）、OBS / vMix（中小型转播） | 统一使用 Browser Source，播出端只是「浏览器容器」 |
 | 存储 | MVP 内存 → SQLite（单机）/ PostgreSQL（多赛事） | 赛事资料、模板预设、操作审计 |
@@ -168,7 +168,7 @@ LiveCG/
 │   │   ├── scripts/cs2-sim.ts        模拟器命令行（推送到服务端）
 │   │   └── test/                     node:test 回归测试
 │   ├── graphics/      输出页（?channel=pgm|pvw）+ 模板（CS2：scorebug、player-bars、killfeed、round-summary；通用：lower-third、caption、lineup；传统体育：football-scorebug、basketball-scorebug、match-event）
-│   └── control/       操作员控制台（index.html + app.js + sports.js）与房间管理页（rooms.html）
+│   └── control/       操作员控制台与房间管理页（React + Vite，src/ → dist/，由服务端托管在 /control/）
 ├── packages/
 │   └── shared/        共享类型与消息协议
 ├── integrations/

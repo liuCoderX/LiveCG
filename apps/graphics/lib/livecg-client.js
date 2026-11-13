@@ -7,8 +7,11 @@ export const currentRoom = () => new URLSearchParams(location.search).get("room"
 export function connect({ role, room = currentRoom(), onState, onEvent, onError, onConnection }) {
   let ws;
   let lastRev = -1;
+  let closed = false;
+  let retryTimer;
   const queue = [];
   const open = () => {
+    if (closed) return;
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?room=${encodeURIComponent(room)}`);
     ws.onopen = () => {
       // 服务端重启后 rev 从 0 开始，重连时必须重置，否则会丢弃所有新状态
@@ -29,10 +32,11 @@ export function connect({ role, room = currentRoom(), onState, onEvent, onError,
       }
     };
     ws.onclose = (e) => {
+      if (closed) return;
       onConnection?.(false, e.code === ROOM_GONE ? "room-gone" : "disconnected");
       if (e.code === ROOM_GONE) onError?.(`房间「${room}」不存在或已被删除`);
       // 房间不存在时放慢重试（也许稍后会被重新创建），普通断线 1 秒重连
-      setTimeout(open, e.code === ROOM_GONE ? 5000 : 1000);
+      retryTimer = setTimeout(open, e.code === ROOM_GONE ? 5000 : 1000);
     };
   };
   open();
@@ -41,6 +45,12 @@ export function connect({ role, room = currentRoom(), onState, onEvent, onError,
     send(msg) {
       const s = JSON.stringify(msg);
       ws.readyState === WebSocket.OPEN ? ws.send(s) : queue.push(s);
+    },
+    /** 停止重连并关闭连接（React 组件卸载时调用） */
+    close() {
+      closed = true;
+      clearTimeout(retryTimer);
+      ws?.close();
     },
   };
 }

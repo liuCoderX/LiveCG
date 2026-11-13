@@ -50,7 +50,8 @@ const json = (res: ServerResponse, code: number, body: unknown) =>
 export function createApp(opts: AppOptions) {
   const staticRoots: Record<string, string> = {
     "/graphics/": join(opts.appsDir, "graphics"),
-    "/control/": join(opts.appsDir, "control"),
+    // 控制台是 React 构建产物（pnpm build 生成）
+    "/control/": join(opts.appsDir, "control", "dist"),
   };
 
   // ───────────── 房间 ─────────────
@@ -176,6 +177,10 @@ export function createApp(opts: AppOptions) {
         return;
       }
       if (method === "GET" && (await serveStatic(req.url ?? "/", res))) return;
+      if (method === "GET" && url.startsWith("/control/")) {
+        res.writeHead(503, { "content-type": "text/plain; charset=utf-8" }).end("控制台尚未构建：请在项目根目录运行 pnpm build（pnpm start 会自动构建）");
+        return;
+      }
       res.writeHead(404).end("not found");
     } catch (err) {
       const status = err instanceof RoomError ? err.status : 400;

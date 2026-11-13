@@ -11,8 +11,13 @@
 
 ```bash
 pnpm install
-pnpm dev
 ```
+
+```bash
+pnpm start
+```
+
+`pnpm start` 会先构建控制台（React，产物在 `apps/control/dist`）再启动服务。开发时用 `pnpm dev`：控制台改动自动重新构建，服务端改动自动重启（刷新浏览器即可看到）。
 
 - 房间列表：http://localhost:3000/ （自动跳转到 `/control/rooms.html`）
 - 控制台：http://localhost:3000/control/?room=default
