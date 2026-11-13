@@ -3,9 +3,11 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
-import type { ClientMessage, ServerMessage } from "@livecg/shared";
+import type { ClientMessage, GameEvent, ServerMessage } from "@livecg/shared";
 import { Store } from "./store.ts";
-import { mapCs2Payload } from "./adapters/cs2-gsi.ts";
+import { Cs2Adapter, type IngestResult } from "./adapters/cs2-gsi.ts";
+import { DelayQueue } from "./delay-queue.ts";
+import { createRules } from "./rules.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const CS2_GSI_TOKEN = process.env.CS2_GSI_TOKEN ?? "change-me";
@@ -26,6 +28,18 @@ const MIME: Record<string, string> = {
 };
 
 const store = new Store();
+const cs2 = new Cs2Adapter(() => ({ home: store.get().match.home.name, away: store.get().match.away.name }));
+const cs2Delay = new DelayQueue(() => store.get().config.cs2DelayMs);
+const rules = createRules(store);
+
+function applyIngest(result: IngestResult | null): void {
+  if (!result) return;
+  store.patchMatch(result.patch);
+  for (const event of result.events) {
+    rules(event);
+    broadcastEvent(event);
+  }
+}
 
 function readBody(req: IncomingMessage, limit = 2_000_000): Promise<string> {
   return new Promise((ok, fail) => {
@@ -69,8 +83,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(401).end();
         return;
       }
-      const patch = mapCs2Payload(payload);
-      if (patch) store.patchMatch(patch);
+      // 先进延迟缓冲再解析，保证事件与状态同步延迟
+      cs2Delay.push(() => applyIngest(cs2.ingest(payload)));
       res.writeHead(200).end();
       return;
     }
@@ -96,12 +110,22 @@ wss.on("connection", (ws) => {
   send(ws, { type: "state", state: store.get() });
   ws.on("message", (raw) => {
     try {
-      store.dispatch(JSON.parse(raw.toString()) as ClientMessage);
+      const msg = JSON.parse(raw.toString()) as ClientMessage;
+      if (msg.type === "cs2.swapSides") applyIngest(cs2.swapSides());
+      else if (msg.type === "cs2.reset") {
+        cs2Delay.clear();
+        cs2.reset();
+        store.patchMatch({ home: { score: 0 }, away: { score: 0 }, extra: { killfeed: [], roundHistory: [], lastRound: undefined } });
+      } else store.dispatch(msg);
     } catch (err) {
       send(ws, { type: "error", message: String(err) });
     }
   });
 });
+
+function broadcastEvent(event: GameEvent): void {
+  for (const ws of wss.clients) send(ws, { type: "event", event });
+}
 
 store.subscribe((state) => {
   for (const ws of wss.clients) send(ws, { type: "state", state });

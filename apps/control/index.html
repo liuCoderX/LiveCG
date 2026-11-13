@@ -5,96 +5,192 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LiveCG Control</title>
 <style>
-  :root { color-scheme: dark; --bg: #14161a; --panel: #1d2026; --line: #2c313a; --text: #e8eaed; --muted: #9aa0a6; --accent: #2f6bff; --live: #e5484d; }
+  :root { color-scheme: dark; --bg: #14161a; --panel: #1d2026; --line: #2c313a; --text: #e8eaed; --muted: #9aa0a6; --accent: #2f6bff; --live: #e5484d; --ok: #3fb950; --warn: #d29922; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Noto Sans SC", sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0; }
   #conn { font-size: 12px; color: var(--muted); }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; padding: 16px 20px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+  .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
   .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .row > label { color: var(--muted); }
   input { background: #0f1115; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; flex: 1; }
-  input.num { flex: 0 0 64px; text-align: center; }
+  input.num { flex: 0 0 72px; text-align: center; }
+  input[type=checkbox] { flex: 0 0 auto; }
   button { background: #2a2f38; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: #4a5160; }
   button.take { background: var(--live); border-color: var(--live); font-weight: 700; }
   button.primary { background: var(--accent); border-color: var(--accent); }
+  button.danger { color: #ff9b9b; }
+  .layers { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; }
   .preview { aspect-ratio: 16/9; width: 100%; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; position: relative; background: #000; }
   .preview iframe { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; }
-  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #2a2f38; color: var(--muted); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #2a2f38; color: var(--muted); white-space: nowrap; }
   .tag.on { background: var(--live); color: #fff; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); }
+  .kv { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 4px 12px; font-size: 13px; margin-bottom: 12px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  #log { list-style: none; margin: 0; padding: 0; font-size: 13px; max-height: 220px; overflow: auto; }
+  #log li { padding: 4px 0; border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
+  #log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
 </style>
 </head>
 <body>
 <header><h1>LiveCG 控制台</h1><span id="conn">连接中…</span></header>
 <main>
-  <div>
+  <div class="stack">
     <section>
       <h2>比分 / 赛况</h2>
-      <div class="row"><input id="homeName" placeholder="主队简称"><input class="num" id="homeScore" type="number"><button data-score="home:1">+1</button><button data-score="home:-1">−1</button></div>
-      <div class="row"><input id="awayName" placeholder="客队简称"><input class="num" id="awayScore" type="number"><button data-score="away:1">+1</button><button data-score="away:-1">−1</button></div>
-      <div class="row"><input id="period" placeholder="局/节/半场，例如 R12 / Q3"><button class="primary" id="applyMatch">应用</button></div>
-      <div class="row">
-        <span>比分条</span><span class="tag" id="tag-scorebug">OFF</span>
-        <button class="take" data-show="scorebug">TAKE</button><button data-hide="scorebug">OUT</button>
-      </div>
+      <div class="row"><input id="homeName" placeholder="主队简称" aria-label="主队简称"><input class="num" id="homeScore" type="number" aria-label="主队比分"><button data-score="home:1">+1</button><button data-score="home:-1">−1</button></div>
+      <div class="row"><input id="awayName" placeholder="客队简称" aria-label="客队简称"><input class="num" id="awayScore" type="number" aria-label="客队比分"><button data-score="away:1">+1</button><button data-score="away:-1">−1</button></div>
+      <div class="row"><input id="period" placeholder="局/节/半场，例如 R12 / Q3" aria-label="局/节"><button class="primary" id="applyMatch">应用</button></div>
+      <p class="hint">接入 CS2 后比分、回合由数据自动驱动；队名用于识别阵营时需与服务器 mp_teamname 一致。</p>
     </section>
-    <section style="margin-top:16px">
+
+    <section>
+      <h2>图层</h2>
+      <div class="layers" id="layers"></div>
+      <div class="row" style="margin-top:12px"><button id="clearAll" class="danger">全部下屏</button></div>
+    </section>
+
+    <section>
       <h2>人名条</h2>
-      <div class="row"><input id="ltTitle" placeholder="主标题，例如 解说 张三"></div>
-      <div class="row"><input id="ltSub" placeholder="副标题，例如 LiveCG 电竞频道"></div>
+      <div class="row"><input id="ltTitle" placeholder="主标题，例如 解说 张三" aria-label="主标题"></div>
+      <div class="row"><input id="ltSub" placeholder="副标题，例如 LiveCG 电竞频道" aria-label="副标题"></div>
+    </section>
+
+    <section>
+      <h2><span class="dot" id="gsiDot"></span>CS2 数据</h2>
+      <dl class="kv">
+        <dt>地图</dt><dd id="csMap">—</dd><dt>回合</dt><dd id="csRound">—</dd>
+        <dt>阶段</dt><dd id="csPhase">—</dd><dt>炸弹</dt><dd id="csBomb">—</dd>
+        <dt>主队阵营</dt><dd id="csSide">—</dd><dt>最近数据</dt><dd id="csAge">—</dd>
+      </dl>
+      <div class="row"><label for="delay">数据延迟 (ms)</label><input class="num" id="delay" type="number" min="0" step="500"><button id="applyDelay">应用</button></div>
+      <div class="row"><input type="checkbox" id="autoSummary"><label for="autoSummary">回合结束自动弹出结算</label><input class="num" id="summaryMs" type="number" min="1000" step="500" aria-label="结算停留毫秒"><label for="summaryMs">ms</label></div>
       <div class="row">
-        <span class="tag" id="tag-lt">OFF</span>
-        <button class="take" data-show="lt">TAKE</button><button data-hide="lt">OUT</button>
-        <button id="clearAll">全部下屏</button>
+        <button id="swapSides">交换主客队阵营</button>
+        <button id="resetCs2" class="danger">重置（换图/新比赛）</button>
       </div>
+      <p class="hint">阵营识别顺序：选手阵容 → 队名 → 半场标记 → 比分连续性。识别错误时点「交换」即可，之后会自动跟随。</p>
     </section>
   </div>
-  <section>
-    <h2>PGM 预览</h2>
-    <div class="preview" id="pv"><iframe src="/graphics/?preview" title="输出预览"></iframe></div>
-    <p style="color:var(--muted);font-size:12px">输出地址：<code>/graphics/</code>，在 OBS / vMix / CasparCG 中以 1920×1080 Browser Source 加载。</p>
-  </section>
+
+  <div class="stack">
+    <section>
+      <h2>PGM 预览</h2>
+      <div class="preview" id="pv"><iframe src="/graphics/?preview" title="输出预览"></iframe></div>
+      <p class="hint">输出地址：<code>/graphics/</code>，在 OBS / vMix / CasparCG 中以 1920×1080 Browser Source 加载。</p>
+    </section>
+    <section>
+      <h2>事件</h2>
+      <ul id="log"></ul>
+    </section>
+  </div>
 </main>
 <script type="module">
   import { connect } from "/graphics/lib/livecg-client.js";
   const $ = (id) => document.getElementById(id);
   let state;
 
+  const LAYERS = [
+    { layer: "scorebug", label: "比分条", template: "scorebug" },
+    { layer: "player-bars", label: "选手血量/经济", template: "player-bars" },
+    { layer: "killfeed", label: "击杀信息", template: "killfeed" },
+    { layer: "round-summary", label: "回合结算", template: "round-summary" },
+    { layer: "lt", label: "人名条", template: "lower-third", data: () => ({ title: $("ltTitle").value, subtitle: $("ltSub").value }) },
+  ];
+  $("layers").innerHTML = LAYERS.map((l) => `
+    <span>${l.label}</span><span class="tag" data-tag="${l.layer}">OFF</span>
+    <button class="take" data-show="${l.layer}">TAKE</button><button data-hide="${l.layer}">OUT</button>`).join("");
+
+  const send = (msg) => client.send(msg);
+  const setVal = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v ?? ""; };
+
+  const REASON = { elimination: "全歼", bomb: "爆炸", defuse: "拆包", time: "超时", unknown: "" };
+  const name = (key) => state?.match[key]?.shortName || key;
+  const describe = (e) => {
+    switch (e.type) {
+      case "cs2.kill": return `${e.kill.killer?.name ?? "☠"} → ${e.kill.victim.name}${e.kill.headshot ? "（爆头）" : ""}`;
+      case "cs2.roundStart": return `第 ${e.round} 回合开始`;
+      case "cs2.roundEnd": return `${name(e.result.winner)} 赢下第 ${e.result.round} 回合（${REASON[e.result.reason]}）${e.result.score.home}:${e.result.score.away}`;
+      case "cs2.bombPlanted": return "炸弹已安放";
+      case "cs2.bombDefused": return "炸弹已拆除";
+      case "cs2.bombExploded": return "炸弹爆炸";
+      case "cs2.clutch": return `残局 1v${e.vs}：${e.player}（${name(e.team)}）`;
+      case "cs2.halftime": return "半场换边";
+      case "cs2.matchEnd": return `比赛结束${e.winner ? `，${name(e.winner)} 获胜` : ""}`;
+      default: return e.type;
+    }
+  };
+
   const client = connect({
     role: "control",
     onState(s) {
       state = s;
       $("conn").textContent = `已连接 · rev ${s.rev} · ${s.match.sport}`;
-      for (const [id, v] of [["homeName", s.match.home.shortName], ["awayName", s.match.away.shortName], ["homeScore", s.match.home.score], ["awayScore", s.match.away.score], ["period", s.match.period]]) {
-        if (document.activeElement !== $(id)) $(id).value = v ?? "";
+      setVal("homeName", s.match.home.shortName); setVal("awayName", s.match.away.shortName);
+      setVal("homeScore", s.match.home.score); setVal("awayScore", s.match.away.score);
+      setVal("period", s.match.period);
+      setVal("delay", s.config.cs2DelayMs); setVal("summaryMs", s.config.automation.roundSummaryMs);
+      $("autoSummary").checked = s.config.automation.roundSummary;
+      for (const tag of document.querySelectorAll("[data-tag]")) {
+        const on = !!s.layers[tag.dataset.tag]?.visible;
+        tag.textContent = on ? "ON AIR" : "OFF";
+        tag.classList.toggle("on", on);
       }
-      for (const [layer, tag] of [["scorebug", "tag-scorebug"], ["lt", "tag-lt"]]) {
-        const on = !!s.layers[layer]?.visible;
-        $(tag).textContent = on ? "ON AIR" : "OFF";
-        $(tag).classList.toggle("on", on);
-      }
+      const x = s.match.sport === "cs2" ? s.match.extra : null;
+      $("csMap").textContent = x?.mapName ?? "—";
+      $("csRound").textContent = x ? `R${x.round}` : "—";
+      $("csPhase").textContent = x ? `${x.mapPhase} / ${x.roundPhase}` : "—";
+      $("csBomb").textContent = x?.bomb ?? "—";
+      $("csSide").textContent = x ? x.sides.home : "—";
+    },
+    onEvent(e) {
+      if (!e.type.startsWith("cs2.")) return;
+      const li = document.createElement("li");
+      li.innerHTML = `<time>${new Date().toLocaleTimeString()}</time><span></span>`;
+      li.lastChild.textContent = describe(e);
+      $("log").prepend(li);
+      while ($("log").children.length > 50) $("log").lastChild.remove();
     },
   });
 
-  $("applyMatch").onclick = () => client.send({ type: "match.patch", patch: {
+  // GSI 心跳：超过 15 秒没有数据视为离线（cfg 中 heartbeat 为 10 秒）
+  setInterval(() => {
+    const at = state?.match.extra?.lastFrameAt;
+    const age = at ? (Date.now() - at) / 1000 : Infinity;
+    $("gsiDot").className = `dot ${age < 15 ? "ok" : at ? "warn" : ""}`;
+    $("csAge").textContent = at ? `${age.toFixed(0)} 秒前` : "—";
+  }, 1000);
+
+  $("applyMatch").onclick = () => send({ type: "match.patch", patch: {
     period: $("period").value,
-    home: { shortName: $("homeName").value, score: Number($("homeScore").value) },
-    away: { shortName: $("awayName").value, score: Number($("awayScore").value) },
+    home: { shortName: $("homeName").value, name: $("homeName").value, score: Number($("homeScore").value) },
+    away: { shortName: $("awayName").value, name: $("awayName").value, score: Number($("awayScore").value) },
   }});
   document.querySelectorAll("[data-score]").forEach((b) => (b.onclick = () => {
     const [side, d] = b.dataset.score.split(":");
-    client.send({ type: "match.patch", patch: { [side]: { score: Math.max(0, state.match[side].score + Number(d)) } } });
+    send({ type: "match.patch", patch: { [side]: { score: Math.max(0, state.match[side].score + Number(d)) } } });
   }));
-  const layerDefs = {
-    scorebug: () => ({ template: "scorebug", data: {} }),
-    lt: () => ({ template: "lower-third", data: { title: $("ltTitle").value, subtitle: $("ltSub").value } }),
-  };
-  document.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => client.send({ type: "graphic.show", layer: b.dataset.show, ...layerDefs[b.dataset.show]() })));
-  document.querySelectorAll("[data-hide]").forEach((b) => (b.onclick = () => client.send({ type: "graphic.hide", layer: b.dataset.hide })));
-  $("clearAll").onclick = () => client.send({ type: "graphic.clearAll" });
+  document.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => {
+    const def = LAYERS.find((l) => l.layer === b.dataset.show);
+    send({ type: "graphic.show", layer: def.layer, template: def.template, data: def.data?.() ?? {} });
+  }));
+  document.querySelectorAll("[data-hide]").forEach((b) => (b.onclick = () => send({ type: "graphic.hide", layer: b.dataset.hide })));
+  $("clearAll").onclick = () => send({ type: "graphic.clearAll" });
+
+  $("applyDelay").onclick = () => send({ type: "config.set", patch: { cs2DelayMs: Math.max(0, Number($("delay").value) || 0) } });
+  $("autoSummary").onchange = () => send({ type: "config.set", patch: { automation: { roundSummary: $("autoSummary").checked } } });
+  $("summaryMs").onchange = () => send({ type: "config.set", patch: { automation: { roundSummaryMs: Math.max(1000, Number($("summaryMs").value) || 7000) } } });
+  $("swapSides").onclick = () => send({ type: "cs2.swapSides" });
+  $("resetCs2").onclick = () => confirm("清空阵容识别、回合历史和统计？") && send({ type: "cs2.reset" });
 
   const fit = () => { const f = $("pv").querySelector("iframe"); f.style.transform = `scale(${$("pv").clientWidth / 1920})`; };
   new ResizeObserver(fit).observe($("pv"));

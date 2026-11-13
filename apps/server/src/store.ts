@@ -1,8 +1,8 @@
-import type { AppState, ClientMessage, DeepPartial, MatchState } from "@livecg/shared";
+import type { AppConfig, AppState, ClientMessage, DeepPartial, MatchState } from "@livecg/shared";
 
 type Listener = (state: AppState) => void;
 
-function deepMerge<T>(target: T, patch: DeepPartial<T>): T {
+export function deepMerge<T>(target: T, patch: DeepPartial<T>): T {
   const out: any = Array.isArray(target) ? [...(target as any)] : { ...(target as any) };
   for (const [k, v] of Object.entries(patch as object)) {
     if (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object") {
@@ -23,9 +23,14 @@ const initialMatch: MatchState = {
   extra: {},
 };
 
+const initialConfig: AppConfig = {
+  cs2DelayMs: Number(process.env.CS2_DELAY_MS ?? 0),
+  automation: { roundSummary: true, roundSummaryMs: 7000 },
+};
+
 /** 单一状态源（Single Source of Truth）：所有数据源与操作员指令都汇入这里 */
 export class Store {
-  private state: AppState = { match: initialMatch, layers: {}, rev: 0 };
+  private state: AppState = { match: initialMatch, layers: {}, config: initialConfig, rev: 0 };
   private listeners = new Set<Listener>();
 
   get(): AppState {
@@ -64,6 +69,8 @@ export class Store {
         break;
       case "match.patch":
         return this.patchMatch(msg.patch);
+      case "config.set":
+        return this.commit({ ...this.state, config: deepMerge(this.state.config, msg.patch) });
       default:
         return;
     }

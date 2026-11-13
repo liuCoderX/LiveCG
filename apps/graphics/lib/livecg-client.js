@@ -1,5 +1,5 @@
 // 图文端 / 控制台共用的 WebSocket 客户端：自动重连 + 按 rev 丢弃过期状态
-export function connect({ role, onState }) {
+export function connect({ role, onState, onEvent }) {
   let ws;
   let lastRev = -1;
   const queue = [];
@@ -15,6 +15,8 @@ export function connect({ role, onState }) {
       if (msg.type === "state" && msg.state.rev > lastRev) {
         lastRev = msg.state.rev;
         onState(msg.state);
+      } else if (msg.type === "event") {
+        onEvent?.(msg.event);
       }
     };
     ws.onclose = () => setTimeout(open, 1000);

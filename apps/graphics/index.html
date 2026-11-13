@@ -9,16 +9,6 @@
   body.preview { background: repeating-conic-gradient(#2a2a2a 0 25%, #333 0 50%) 0 0 / 40px 40px; }
   .layer { position: absolute; inset: 0; opacity: 0; transform: translateY(24px); transition: opacity .35s ease, transform .35s ease; pointer-events: none; }
   .layer.on { opacity: 1; transform: none; }
-
-  .scorebug { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; height: 56px; color: #fff; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
-  .sb-team { display: flex; align-items: center; background: #111c; border-bottom: 4px solid var(--c); }
-  .sb-name { padding: 0 20px; font-size: 26px; letter-spacing: .04em; }
-  .sb-score { min-width: 64px; height: 100%; display: grid; place-items: center; background: var(--c); font-size: 32px; font-variant-numeric: tabular-nums; }
-  .sb-mid { display: grid; place-items: center; padding: 0 18px; background: #000d; font-size: 18px; color: #ddd; min-width: 60px; }
-
-  .lower-third { position: absolute; left: 120px; bottom: 120px; color: #fff; }
-  .lt-title { background: #2f6bff; padding: 12px 28px; font-size: 40px; font-weight: 800; }
-  .lt-sub { background: #000c; padding: 8px 28px; font-size: 24px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -32,35 +22,80 @@
   const only = params.get("layers")?.split(",");
 
   const stage = document.getElementById("stage");
-  const nodes = new Map();
+  /** layer → { el, tpl, ctx } */
+  const live = new Map();
   const templates = new Map();
-  const loadTemplate = async (name) => {
-    if (!templates.has(name)) templates.set(name, import(`./templates/${name}.js`).then((m) => m.default));
+  /** 模板导出 css 字符串，首次加载时注入一次 */
+  const loadTemplate = (name) => {
+    if (!templates.has(name)) {
+      templates.set(name, import(`./templates/${name}.js`).then((m) => {
+        const tpl = m.default;
+        if (tpl.css) document.head.appendChild(Object.assign(document.createElement("style"), { textContent: tpl.css }));
+        return tpl;
+      }));
+    }
     return templates.get(name);
+  };
+
+  // 比赛时钟：用本机收到数据的时刻做插值，避免服务器与播出机时钟不一致
+  let clockRef = { key: "", localAt: 0 };
+  const clockMs = (clock) => {
+    if (!clock) return undefined;
+    if (!clock.running) return clock.ms;
+    const d = Date.now() - clockRef.localAt;
+    return clock.direction === "down" ? Math.max(0, clock.ms - d) : clock.ms + d;
   };
 
   connect({
     role: "graphics",
     async onState(state) {
+      const c = state.match.clock;
+      const key = c ? `${c.ms}|${c.updatedAt}|${c.running}` : "";
+      if (key !== clockRef.key) clockRef = { key, localAt: Date.now() };
+
       for (const layer of Object.values(state.layers)) {
         if (only && !only.includes(layer.layer)) continue;
-        let el = nodes.get(layer.layer);
-        if (!el) {
-          el = Object.assign(document.createElement("div"), { className: "layer" });
+        let entry = live.get(layer.layer);
+        if (!entry) {
+          const el = Object.assign(document.createElement("div"), { className: "layer" });
           el.dataset.layer = layer.layer;
           stage.appendChild(el);
-          nodes.set(layer.layer, el);
+          entry = { el };
+          live.set(layer.layer, entry);
+        }
+        // 已下屏的图层不再渲染：保留最后画面完成淡出，也省掉高频数据的开销
+        if (!layer.visible) {
+          entry.el.classList.remove("on");
+          continue;
         }
         try {
           const tpl = await loadTemplate(layer.template);
-          tpl.render(el, { match: state.match, data: layer.data, state });
+          if (entry.tpl !== tpl) {
+            entry.el.replaceChildren();
+            entry.tpl = tpl;
+          }
+          entry.ctx = { match: state.match, data: layer.data, state, clockMs: () => clockMs(state.match.clock) };
+          tpl.render(entry.el, entry.ctx);
+          tpl.tick?.(entry.el, entry.ctx);
         } catch (err) {
           console.error(`template "${layer.template}" failed`, err);
+          continue;
         }
-        requestAnimationFrame(() => el.classList.toggle("on", layer.visible));
+        requestAnimationFrame(() => entry.el.classList.add("on"));
       }
     },
   });
+
+  // 逐帧钩子：时钟、限时淡出等不依赖推送的动画
+  const loop = () => {
+    for (const { el, tpl, ctx } of live.values()) {
+      if (ctx && el.classList.contains("on")) {
+        try { tpl.tick?.(el, ctx); } catch (err) { console.error(err); }
+      }
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
 </script>
 </body>
 </html>
