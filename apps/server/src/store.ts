@@ -9,6 +9,7 @@ import type {
   OutputStatus,
   RoomInfo,
   Rundown,
+  ThemeConfig,
   RundownItem,
 } from "@livecg/shared";
 
@@ -50,6 +51,7 @@ export function defaultConfig(port = Number(process.env.PORT ?? 3000)): AppConfi
       ],
     },
     scoreboard: { enabled: false, port: 5300, clockSource: "internal", staleMs: 3000 },
+    theme: { preset: "default", overrides: {} },
   };
 }
 
@@ -80,6 +82,28 @@ export interface StoreSeed {
 }
 
 const HOTKEY_RE = /^[0-9a-z]$/;
+const THEME_ID_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const THEME_VAR_RE = /^--lcg-[a-z0-9-]{1,40}$/;
+
+/**
+ * 主题覆盖值校验：这些值最终写进播出机浏览器的 CSS 变量。
+ * 禁止 url()/expression/@import 等能让播出机去加载外部资源的写法，以及能跳出声明的字符。
+ */
+export function validateTheme(theme: unknown): ThemeConfig {
+  const t = theme as Partial<ThemeConfig> | undefined;
+  if (!t || typeof t.preset !== "string" || !THEME_ID_RE.test(t.preset)) throw new Error("主题预设名称不合法");
+  const overrides: Record<string, string> = {};
+  const entries = Object.entries(t.overrides ?? {});
+  if (entries.length > 40) throw new Error("覆盖项太多（最多 40 项）");
+  for (const [k, v] of entries) {
+    if (!THEME_VAR_RE.test(k)) throw new Error(`主题变量名必须以 --lcg- 开头：${k}`);
+    if (typeof v !== "string" || v.length > 200) throw new Error(`主题变量 ${k} 的值过长或不是文本`);
+    if (/[;{}<>\\]|url\s*\(|expression|@import|javascript:/i.test(v)) throw new Error(`主题变量 ${k} 的值包含不允许的内容`);
+    const val = v.trim();
+    if (val) overrides[k] = val;
+  }
+  return { preset: t.preset, overrides };
+}
 
 /** 单一状态源（Single Source of Truth）：所有数据源与操作员指令都汇入这里 */
 export class Store {
@@ -244,7 +268,11 @@ export class Store {
         return this.patchMatch(msg.patch);
 
       case "config.set":
+        if ("theme" in msg.patch) throw new Error("外观请用 theme.set 设置");
         return this.commit({ ...s, config: deepMerge(s.config, msg.patch) });
+
+      case "theme.set":
+        return this.commit({ ...s, config: { ...s.config, theme: validateTheme(msg.theme) } });
 
       default:
         return;

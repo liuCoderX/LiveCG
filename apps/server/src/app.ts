@@ -318,6 +318,16 @@ export function createApp(opts: AppOptions) {
 
       // 公开信息
       if (method === "GET" && url === "/api/presets") return json(res, 200, Object.values(PRESETS));
+      if (method === "GET" && url === "/api/themes") {
+        const dir = join(staticRoots["/graphics/"], "themes");
+        const files = (await readdir(dir)).filter((f) => f.endsWith(".json")).sort();
+        const themes = (await Promise.all(files.map(async (f) => {
+          try { return [JSON.parse(await readFile(join(dir, f), "utf8"))]; } catch { return []; }
+        }))).flat();
+        // 默认主题排第一
+        themes.sort((a, b) => (a.id === "default" ? -1 : b.id === "default" ? 1 : 0));
+        return json(res, 200, themes);
+      }
       if (method === "GET" && url === "/api/templates") {
         const files = await readdir(join(staticRoots["/graphics/"], "templates"));
         return json(res, 200, files.filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3)).sort());

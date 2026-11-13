@@ -1,0 +1,17 @@
+{
+  "id": "classic",
+  "label": "体育经典",
+  "description": "藏青面板、红色强调、金色高亮，传统体育转播风格",
+  "vars": {
+    "--lcg-text": "#ffffff",
+    "--lcg-muted": "#a9bad6",
+    "--lcg-panel": "rgba(9,28,60,.95)",
+    "--lcg-panel-strong": "#051634",
+    "--lcg-panel-sub": "rgba(5,22,52,.88)",
+    "--lcg-accent": "#c8102e",
+    "--lcg-on-accent": "#ffffff",
+    "--lcg-highlight": "#f2c14e",
+    "--lcg-radius": "2px",
+    "--lcg-shadow": "0 6px 18px rgba(0,0,0,.45)"
+  }
+}

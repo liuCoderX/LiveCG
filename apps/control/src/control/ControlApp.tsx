@@ -14,8 +14,9 @@ import { Editor } from "./Editor.tsx";
 import { Keys, Monitors, OnAir } from "./Monitors.tsx";
 import { MatchTab } from "./MatchTab.tsx";
 import { Cs2Tab, DevicesTab, EventsTab, type LogLine } from "./OtherTabs.tsx";
+import { AppearanceTab } from "./AppearanceTab.tsx";
 
-const TABS = [["match", "赛况"], ["cs2", "CS2"], ["devices", "设备"], ["events", "事件"]] as const;
+const TABS = [["match", "赛况"], ["cs2", "CS2"], ["devices", "设备"], ["appearance", "外观"], ["events", "事件"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 export function ControlApp() {
@@ -106,6 +107,7 @@ export function ControlApp() {
               <MatchTab state={state} send={send} hidden={tab !== "match"} />
               <Cs2Tab state={state} send={send} hidden={tab !== "cs2"} />
               <DevicesTab state={state} send={send} hidden={tab !== "devices"} canEditDevices={role === "admin"} />
+              <AppearanceTab state={state} send={send} hidden={tab !== "appearance"} />
               <EventsTab log={log} hidden={tab !== "events"} />
             </fieldset>
           </div>

@@ -6,15 +6,15 @@ export default {
   meta: { label: "足球比分条", layer: "scorebug", z: 10 },
 
   css: `
-    .fsb { position: absolute; top: 48px; left: 96px; display: flex; align-items: stretch; height: 52px; color: #fff; font-weight: 700;
-      box-shadow: 0 8px 24px rgba(0,0,0,.35); font-variant-numeric: tabular-nums; }
-    .fsb-period { display: grid; place-items: center; padding: 0 12px; background: #0b0d12; color: #9aa3b5; font-size: 16px; letter-spacing: .06em; }
-    .fsb-team { display: flex; align-items: center; gap: 8px; padding: 0 16px; background: rgba(16,18,26,.92); font-size: 24px; letter-spacing: .04em; border-bottom: 4px solid var(--c); }
+    .fsb { position: absolute; top: 48px; left: 96px; display: flex; align-items: stretch; height: 52px; color: var(--lcg-text, #fff); font-weight: 700; border-radius: var(--lcg-radius, 0); overflow: hidden;
+      box-shadow: var(--lcg-shadow, 0 8px 24px rgba(0,0,0,.35)); font-variant-numeric: tabular-nums; }
+    .fsb-period { display: grid; place-items: center; padding: 0 12px; background: var(--lcg-panel-strong, #0b0d12); color: var(--lcg-muted, #9aa3b5); font-size: 16px; letter-spacing: .06em; }
+    .fsb-team { display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--lcg-panel, rgba(16,18,26,.92)); font-size: 24px; letter-spacing: .04em; border-bottom: 4px solid var(--c); }
     .fsb-reds { display: inline-flex; gap: 3px; }
-    .fsb-reds i { width: 10px; height: 14px; background: #e5484d; border-radius: 1px; }
+    .fsb-reds i { width: 10px; height: 14px; background: var(--lcg-danger, #e5484d); border-radius: 1px; }
     .fsb-score { display: flex; align-items: center; gap: 10px; padding: 0 16px; background: #fff; color: #111; font-size: 30px; }
     .fsb-score span:nth-child(2) { color: #999; font-size: 22px; }
-    .fsb-clock { display: grid; place-items: center; min-width: 96px; padding: 0 14px; background: #0b0d12; font-size: 26px; }
+    .fsb-clock { display: grid; place-items: center; min-width: 96px; padding: 0 14px; background: var(--lcg-panel-strong, #0b0d12); font-size: 26px; }
     .fsb-added { display: grid; place-items: center; padding: 0 12px; background: #3fb950; color: #08140b; font-size: 22px; font-weight: 800; }
     .fsb [hidden] { display: none !important; }
   `,

@@ -92,6 +92,14 @@ curl -X POST http://localhost:3000/api/rooms/default/command -H "Authorization: 
 常用指令：`{"type":"rundown.fire","id":"<条目 id>"}`（热键同款上/下屏）、`{"type":"rundown.cue"}`、`{"type":"graphic.take"}`、`{"type":"graphic.clearAll"}`、`{"type":"graphic.update","layer":"caption","data":{"text":"…"}}`。
 条目 id 可在 `GET /api/rooms/<房间>/state` 的 `rundown.items` 中查到（不带房间的 `/api/command`、`/api/state` 仍可用，作用于默认房间）。Bitfocus Companion 用「Generic HTTP → POST」动作，加上 `Authorization: Bearer <令牌>` 请求头即可绑定到 Stream Deck 按键。令牌可随时在「我的账号」吊销。
 
+## 外观（换皮）
+
+控制台「外观」页：为本房间选择主题（默认、明亮、电竞霓虹、体育经典），再按需覆盖强调色、面板色、文字色、字体、圆角等。点「应用到本房间」后，本房间所有输出（包括 CasparCG / OBS 上正在运行的页面）立即换皮，在屏图文不重播入场。
+
+- 主题包是 `apps/graphics/themes/` 下的 JSON 文件，放进去就能选，格式见 [docs/TEMPLATES.md](docs/TEMPLATES.md)。
+- 字体需要在**播出机**上已安装，否则会退回默认字体。
+- 队伍颜色在「赛况 → 比分 / 队伍」里设置，不随主题变化。
+
 ## 主备容灾（双机热备）
 
 两台机器各跑一个 LiveCG，互相指向对方：

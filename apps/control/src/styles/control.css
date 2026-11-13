@@ -126,3 +126,16 @@ fieldset.bare { border: 0; margin: 0; padding: 0; min-width: 0; }
 .node-banner.standby { background: #3a2f12; color: #ffe2a8; }
 .node-banner.lost { background: var(--live); color: #fff; }
 .node-banner.lost button { background: #fff; color: #b3261e; border-color: #fff; font-weight: 800; padding: 6px 16px; }
+
+/* 外观 */
+table.theme-vars { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.theme-vars th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 6px 3px 0; white-space: nowrap; width: 1%; }
+table.theme-vars td { padding: 3px 4px; }
+table.theme-vars td input:not([type=color]) { width: 100%; }
+table.theme-vars tr.overridden th { color: var(--text); }
+table.theme-vars .swatch-cell { width: 44px; }
+@media (max-width: 600px) { table.theme-vars th { white-space: normal; width: 34%; } }
+.swatch { position: relative; display: inline-block; width: 36px; height: 28px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; cursor: pointer;
+  background: repeating-conic-gradient(#444 0 25%, #222 0 50%) 0 0 / 10px 10px; vertical-align: middle; }
+.swatch span { position: absolute; inset: 0; }
+.swatch input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }

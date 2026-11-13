@@ -166,6 +166,13 @@ M2 已实现以下能力（★ 为尚未实现）：
 - **防双主**：配置了主备时，房间先以备机方式加载，确定角色后才启动服务（防止重启的备机抢先向 CasparCG 发 PLAY）；启动时对端已是主机则本机一律为备机；运行中每 5 秒探测对端，双主时控制台红色告警。不做自动接管。
 - **输出页**：`?failover=` 列出备用服务器；断线时轮流尝试（刚断开的连接 100ms 内切换）。打开时预加载全部模板，加载失败时改从备用服务器加载（`/graphics/` 静态文件带 CORS 头以支持跨源加载 ES Module），失败的加载不缓存。
 
+## 7.8 外观 / 换皮（M4b）
+
+- 模板颜色、字体、圆角、阴影全部改为 `--lcg-*` CSS 变量，回退值即原值（默认主题 = 原样，已用计算样式逐项验证）。
+- 主题包 `apps/graphics/themes/*.json`；房间配置 `config.theme = { preset, overrides }`，用 `theme.set` 整体替换（合并语义无法删除单个覆盖项）。
+- 输出页把「预设变量 + 覆盖值」写到 `:root`，即时生效、不触发重绘逻辑和入场动画；切回默认时移除全部变量。预设加载失败时从备机加载，再失败退回默认外观。
+- 校验：变量名 `^--lcg-[a-z0-9-]+$`，值 ≤200 字符且不含 `url(`、`expression`、`@import`、`;{}<>\` 等——这些值最终运行在播出机浏览器里，不能让它去加载外部资源。
+
 ## 8. 目录结构（当前）
 
 ```
@@ -187,6 +194,7 @@ LiveCG/
 │   │   ├── scripts/scoreboard-sim.ts 计分器模拟器（UDP）
 │   │   ├── scripts/cs2-sim.ts        模拟器命令行（推送到服务端）
 │   │   └── test/                     node:test 回归测试
+│   ├── graphics/themes/  主题包（JSON：一组 --lcg-* 变量）
 │   ├── graphics/      输出页（?channel=pgm|pvw）+ 模板（CS2：scorebug、player-bars、killfeed、round-summary；通用：lower-third、caption、lineup；传统体育：football-scorebug、basketball-scorebug、match-event）
 │   └── control/       操作员控制台与房间管理页（React + Vite，src/ → dist/，由服务端托管在 /control/）
 ├── packages/
@@ -207,5 +215,5 @@ LiveCG/
 | **M2 播出能力（已完成，CasparCG 待真机验证）** | 模板 in/out 动画规范、PVW/PGM、Rundown、快捷键与 HTTP 控制 API、CasparCG AMCP 控制、持久化 | 专业转播车可用 |
 | **M3 传统体育（已完成，计分器待真机联调）** | 服务端时钟、足球/篮球赛制、足球事件、通用计分器 UDP 输入与掉线兜底、足球/篮球比分条、事件条、首发名单 | 覆盖篮球/足球转播 |
 | **M4a 多房间（已完成）** | 一台服务多场比赛、房间管理页、跨房间设备冲突检查、单房间数据迁移 | 同时转播多场 |
-| M4b 平台化（待做） | 登录与权限、操作审计、主备容灾、React 控制台、模板换皮 | 可对外交付的产品 |
+| **M4b 平台化（已完成）** | React 控制台、登录与权限、操作审计、主备容灾、主题换皮 | 可对外交付的产品（CasparCG / 计分器 / 主备需真机验证） |
 | M5 增值 | ASR 实时字幕、AI 自动高光/数据卡、云端远程制作 | 差异化能力 |

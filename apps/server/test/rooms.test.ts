@@ -242,3 +242,19 @@ test("CasparCG output URLs carry the room id", async () => {
   assert.equal(url, "http://10.0.0.5:3000/graphics/?room=court-2&channel=pgm");
   assert.ok(readFileSync(new URL("../src/casparcg.ts", import.meta.url), "utf8").includes("room.id"));
 });
+
+test("theme presets are listed with the default first; theme is per room", async () => {
+  await withApp(async ({ base }) => {
+    const themes = (await fetch(`${base}/api/themes`).then((r) => r.json())) as Array<{ id: string; label: string; vars: Record<string, string> }>;
+    assert.equal(themes[0].id, "default");
+    assert.deepEqual(themes[0].vars, {}, "default theme keeps the templates' own colours");
+    assert.ok(themes.some((t) => t.id === "neon") && themes.some((t) => t.id === "light"));
+    for (const t of themes) for (const k of Object.keys(t.vars)) assert.match(k, /^--lcg-/);
+    await post(`${base}/api/rooms`, { name: "B", id: "b" });
+    await post(`${base}/api/rooms/b/command`, { type: "theme.set", theme: { preset: "neon", overrides: {} } });
+    const a = await fetch(`${base}/api/state`).then((r) => r.json());
+    const b = await fetch(`${base}/api/rooms/b/state`).then((r) => r.json());
+    assert.equal(a.config.theme.preset, "default");
+    assert.equal(b.config.theme.preset, "neon");
+  });
+});

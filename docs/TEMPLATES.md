@@ -73,6 +73,38 @@ export default {
 6. **`z`** 约定：比分条 10、选手条 20、击杀 30、结算 40、人名条 50、比赛事件 55、字幕 60、全屏类（首发名单等）80。
 7. **时钟只在 `tick` 里读。** `render` 只在数据变化时调用，时钟走表靠每帧的 `tick` + `clockMs()`；格式化用 `util.js` 的 `fmtGameClock`（篮球，最后一分钟带十分之一秒）、`fmtMatchClock`（足球 mm:ss）、`fmtShotClock`。
 
+## 主题变量（换皮）
+
+模板的颜色、字体、圆角、阴影都通过 `--lcg-*` CSS 变量取值，**回退值写成模板原本的样子**，所以不加载任何主题时外观不变：
+
+```css
+.lt-title { background: var(--lcg-accent, #2f6bff); color: var(--lcg-on-accent, #fff); border-radius: var(--lcg-radius, 0); }
+```
+
+| 变量 | 用途 |
+|---|---|
+| `--lcg-font` | 字体（输出页 body，所有模板继承） |
+| `--lcg-text` / `--lcg-muted` | 主文字 / 次要文字 |
+| `--lcg-panel` / `--lcg-panel-strong` / `--lcg-panel-sub` | 面板背景 / 深色块（时钟、节次）/ 副条（副标题、字幕） |
+| `--lcg-accent` / `--lcg-on-accent` | 强调色 / 强调色上的文字 |
+| `--lcg-highlight` / `--lcg-danger` / `--lcg-positive` | 高亮 / 警示 / 正向 |
+| `--lcg-ct` / `--lcg-t` | CS2 阵营色 |
+| `--lcg-radius` / `--lcg-shadow` | 圆角 / 阴影 |
+
+约定：
+
+- 新模板里的颜色一律用这些变量 + 原值回退；**队伍色（`--c`）和语义色（黄牌、红牌、进球绿）不跟主题走**。
+- 文字压在队伍色、警示色等固定色块上时写死 `#fff` / `#111`，不要用 `--lcg-text`（明亮主题下 `--lcg-text` 是深色）。
+- 加圆角时在最外层容器上加 `border-radius: var(--lcg-radius, 0); overflow: hidden;`。
+
+**主题包**是 `apps/graphics/themes/<id>.json`：
+
+```json
+{ "id": "neon", "label": "电竞霓虹", "description": "……", "vars": { "--lcg-accent": "#ff2bd6", "--lcg-radius": "4px" } }
+```
+
+放进目录即可在控制台「外观」里选择，无需改代码。每个房间独立选择主题，并可在其上覆盖单个变量；变量名必须以 `--lcg-` 开头，值不能包含 `url()`、`;`、`{}` 等（服务端校验，防止播出机加载外部资源）。
+
 ## 兼容性
 
 输出页使用现代浏览器特性（ES Module、可选链 `?.`、Web Animations API）。OBS、vMix、Chrome 均可直接使用。

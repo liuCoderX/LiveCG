@@ -5,7 +5,7 @@
 <title>LiveCG Output</title>
 <style>
   /* 输出画布固定 1920x1080、透明背景，直接作为 Browser Source / CasparCG HTML Producer 叠加 */
-  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: var(--lcg-font, "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif); }
   body.preview { background: repeating-conic-gradient(#2a2a2a 0 25%, #333 0 50%) 0 0 / 40px 40px; }
   .layer { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
   .layer.on { visibility: visible; }
@@ -69,6 +69,41 @@
     }
     return templates.get(name);
   };
+  // ───────────── 主题 ─────────────
+  // 主题 = 预设（themes/<id>.json 里的一组 --lcg-* 变量）+ 房间覆盖值，写到 :root 上，所有模板即时生效
+  const themeCache = new Map();
+  const loadThemePreset = (id) => {
+    if (!themeCache.has(id)) {
+      const urls = templateBases.map((b) => new URL(`../themes/${id}.json`, b).href);
+      const p = (async () => {
+        for (const u of urls) {
+          try {
+            const r = await fetch(u);
+            if (r.ok) return await r.json();
+          } catch { /* 下一个 */ }
+        }
+        return { vars: {} }; // 预设丢失时退回默认外观（模板里的回退值）
+      })();
+      themeCache.set(id, p);
+    }
+    return themeCache.get(id);
+  };
+  let themeKey = "";
+  let appliedVars = [];
+  const applyTheme = async (theme) => {
+    const t = theme ?? { preset: "default", overrides: {} };
+    const key = JSON.stringify(t);
+    if (key === themeKey) return;
+    themeKey = key;
+    const preset = await loadThemePreset(t.preset);
+    if (key !== themeKey) return; // 加载期间又换了主题
+    const vars = { ...(preset.vars ?? {}), ...(t.overrides ?? {}) };
+    const root = document.documentElement.style;
+    for (const k of appliedVars) if (!(k in vars)) root.removeProperty(k);
+    appliedVars = Object.keys(vars).filter((k) => /^--lcg-[a-z0-9-]+$/.test(k));
+    for (const k of appliedVars) root.setProperty(k, vars[k]);
+  };
+
   // 打开页面时预加载全部模板：首次上屏不用等网络；主机宕机后已加载的模板仍可用
   fetch(new URL("/api/templates", location.href))
     .then((r) => r.json())
@@ -173,6 +208,7 @@
   connect({
     role: "graphics",
     onState(state) {
+      applyTheme(state.config.theme);
       trackClock("clock", state.match.clock);
       trackClock("shotClock", state.match.shotClock);
 

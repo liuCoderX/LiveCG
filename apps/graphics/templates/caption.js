@@ -16,10 +16,10 @@ export default {
   css: `
     .cap { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); max-width: 1500px; text-align: center; }
     .cap-box { display: -webkit-inline-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      padding: 10px 28px; background: rgba(0,0,0,.72); color: #fff; font-size: 40px; line-height: 1.35; font-weight: 600;
+      padding: 10px 28px; background: var(--lcg-panel-sub, rgba(0,0,0,.72)); color: var(--lcg-text, #fff); border-radius: var(--lcg-radius, 0); font-size: 40px; line-height: 1.35; font-weight: 600;
       white-space: pre-wrap; overflow-wrap: anywhere; }
     .cap-box[hidden], .cap-speaker[hidden] { display: none; }
-    .cap-speaker { color: #ffd166; margin-right: .5em; }
+    .cap-speaker { color: var(--lcg-highlight, #ffd166); margin-right: .5em; }
   `,
 
   in: (el) => animate(el.querySelector(".cap"), [{ opacity: 0, transform: "translate(-50%, 16px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 260 }),

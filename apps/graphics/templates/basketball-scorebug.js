@@ -5,32 +5,32 @@ export default {
   meta: { label: "篮球比分条", layer: "scorebug", z: 10 },
 
   css: `
-    .bsb { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: stretch; color: #fff;
-      font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: 0 10px 28px rgba(0,0,0,.4); }
+    .bsb { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: stretch; color: var(--lcg-text, #fff);
+      font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: var(--lcg-shadow, 0 10px 28px rgba(0,0,0,.4)); border-radius: var(--lcg-radius, 0); overflow: hidden; }
     .bsb [hidden] { display: none !important; }
-    .bsb-team { display: grid; grid-template-columns: auto auto; grid-template-rows: 48px 22px; min-width: 300px; background: rgba(14,16,24,.94); }
+    .bsb-team { display: grid; grid-template-columns: auto auto; grid-template-rows: 48px 22px; min-width: 300px; background: var(--lcg-panel, rgba(14,16,24,.94)); }
     .bsb-team.home { grid-template-columns: 1fr auto; }
     .bsb-team.away { grid-template-columns: auto 1fr; }
     .bsb-name { display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 26px; letter-spacing: .04em; border-top: 4px solid var(--c); }
     .bsb-team.home .bsb-name { justify-content: flex-end; }
     .bsb-score { display: grid; place-items: center; min-width: 84px; background: var(--c); color: #fff; font-size: 36px; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
     .bsb-team.away .bsb-score { order: -1; }
-    .bsb-meta { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13px; color: #aab; background: rgba(0,0,0,.55); }
+    .bsb-meta { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13px; color: var(--lcg-muted, #aab); background: var(--lcg-panel-sub, rgba(0,0,0,.55)); }
     .bsb-team.home .bsb-meta { justify-content: flex-end; }
-    .bsb-fouls.pen { color: #fff; background: #e5484d; padding: 0 6px; border-radius: 3px; }
+    .bsb-fouls.pen { color: #fff; background: var(--lcg-danger, #e5484d); padding: 0 6px; border-radius: 3px; }
     .bsb-to { display: inline-flex; gap: 3px; }
-    .bsb-to i { width: 12px; height: 4px; background: #ffd166; border-radius: 1px; }
+    .bsb-to i { width: 12px; height: 4px; background: var(--lcg-highlight, #ffd166); border-radius: 1px; }
     .bsb-to i.used { background: rgba(255,255,255,.18); }
     .bsb-poss { width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; visibility: hidden; }
-    .bsb-team.home .bsb-poss { border-right: 12px solid #ffd166; }
-    .bsb-team.away .bsb-poss { border-left: 12px solid #ffd166; }
+    .bsb-team.home .bsb-poss { border-right: 12px solid var(--lcg-highlight, #ffd166); }
+    .bsb-team.away .bsb-poss { border-left: 12px solid var(--lcg-highlight, #ffd166); }
     .bsb-poss.on { visibility: visible; }
-    .bsb-mid { display: flex; align-items: center; background: #05060a; }
-    .bsb-period { padding: 0 12px; font-size: 18px; color: #aab; }
+    .bsb-mid { display: flex; align-items: center; background: var(--lcg-panel-strong, #05060a); }
+    .bsb-period { padding: 0 12px; font-size: 18px; color: var(--lcg-muted, #aab); }
     .bsb-clock { min-width: 108px; padding-right: 12px; font-size: 34px; text-align: right; }
-    .bsb-clock.last { color: #ffd166; }
-    .bsb-shot { display: grid; place-items: center; min-width: 56px; align-self: stretch; background: #1a1d26; color: #ffd166; font-size: 28px; }
-    .bsb-shot.low { color: #fff; background: #e5484d; }
+    .bsb-clock.last { color: var(--lcg-highlight, #ffd166); }
+    .bsb-shot { display: grid; place-items: center; min-width: 56px; align-self: stretch; background: var(--lcg-panel-strong, #1a1d26); color: var(--lcg-highlight, #ffd166); font-size: 28px; }
+    .bsb-shot.low { color: #fff; background: var(--lcg-danger, #e5484d); }
   `,
 
   async in(el) {

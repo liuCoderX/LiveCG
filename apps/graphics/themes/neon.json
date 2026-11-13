@@ -1,0 +1,21 @@
+{
+  "id": "neon",
+  "label": "电竞霓虹",
+  "description": "深紫面板、品红与青色强调、柔和发光，适合电竞赛事",
+  "vars": {
+    "--lcg-text": "#ffffff",
+    "--lcg-muted": "#b9a8ff",
+    "--lcg-panel": "rgba(20,8,42,.92)",
+    "--lcg-panel-strong": "#0b0420",
+    "--lcg-panel-sub": "rgba(44,18,88,.88)",
+    "--lcg-accent": "#ff2bd6",
+    "--lcg-on-accent": "#ffffff",
+    "--lcg-highlight": "#29f0ff",
+    "--lcg-danger": "#ff3b6b",
+    "--lcg-positive": "#5dffa8",
+    "--lcg-ct": "#29c5ff",
+    "--lcg-t": "#ffb02e",
+    "--lcg-radius": "4px",
+    "--lcg-shadow": "0 0 24px rgba(255,43,214,.35)"
+  }
+}

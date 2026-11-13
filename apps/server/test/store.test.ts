@@ -136,3 +136,21 @@ test("a corrupt data file falls back to defaults instead of crashing", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("theme.set replaces the whole theme and validates names and values", () => {
+  const s = new Store();
+  assert.deepEqual(s.get().config.theme, { preset: "default", overrides: {} });
+  s.dispatch({ type: "theme.set", theme: { preset: "neon", overrides: { "--lcg-accent": "#ff0000", "--lcg-radius": " 8px ", "--lcg-muted": "" } } });
+  assert.deepEqual(s.get().config.theme, { preset: "neon", overrides: { "--lcg-accent": "#ff0000", "--lcg-radius": "8px" } }, "trimmed, empty values dropped");
+  s.dispatch({ type: "theme.set", theme: { preset: "light", overrides: {} } });
+  assert.deepEqual(s.get().config.theme.overrides, {}, "overrides are replaced, not merged");
+
+  const bad = (theme: unknown, re: RegExp) => assert.throws(() => s.dispatch({ type: "theme.set", theme: theme as never }), re);
+  bad({ preset: "../etc", overrides: {} }, /预设/);
+  bad({ preset: "x", overrides: { color: "red" } }, /--lcg-/);
+  bad({ preset: "x", overrides: { "--lcg-panel": "url(http://evil/x.png)" } }, /不允许/);
+  bad({ preset: "x", overrides: { "--lcg-panel": "red; background: url(x)" } }, /不允许/);
+  bad({ preset: "x", overrides: { "--lcg-font": "a}body{display:none" } }, /不允许/);
+  bad({ preset: "x", overrides: { "--lcg-font": "x".repeat(201) } }, /过长/);
+  assert.throws(() => s.dispatch({ type: "config.set", patch: { theme: { preset: "x" } } as never }), /theme.set/);
+});

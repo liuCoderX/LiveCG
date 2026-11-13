@@ -9,12 +9,12 @@ export default {
 
   css: `
     .kf { position: absolute; top: 36px; right: 40px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-    .kf-item { display: flex; align-items: center; gap: 10px; padding: 6px 14px; background: rgba(12,14,20,.86); color: #fff; font-size: 18px; font-weight: 700;
+    .kf-item { display: flex; align-items: center; gap: 10px; padding: 6px 14px; background: var(--lcg-panel, rgba(12,14,20,.86)); color: var(--lcg-text, #fff); border-radius: var(--lcg-radius, 0); font-size: 18px; font-weight: 700;
       animation: kf-in .25s ease-out; transition: opacity .5s, transform .5s; }
-    .kf-item.hs { box-shadow: inset 0 0 0 2px #e5484d; }
+    .kf-item.hs { box-shadow: inset 0 0 0 2px var(--lcg-danger, #e5484d); }
     .kf-item.out { opacity: 0; transform: translateX(30px); }
-    .kf-w { font-size: 14px; color: #ccd; font-weight: 500; }
-    .kf-hs { color: #e5484d; font-size: 14px; }
+    .kf-w { font-size: 14px; color: var(--lcg-muted, #ccd); font-weight: 500; }
+    .kf-hs { color: var(--lcg-danger, #e5484d); font-size: 14px; }
     @keyframes kf-in { from { opacity: 0; transform: translateX(40px); } }
   `,
 

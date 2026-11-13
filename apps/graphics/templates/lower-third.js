@@ -13,9 +13,9 @@ export default {
   },
 
   css: `
-    .lower-third { position: absolute; left: 120px; bottom: 120px; color: #fff; display: flex; flex-direction: column; align-items: flex-start; }
-    .lt-title { background: #2f6bff; padding: 12px 28px; font-size: 40px; font-weight: 800; }
-    .lt-sub { background: rgba(0,0,0,.8); padding: 8px 28px; font-size: 24px; }
+    .lower-third { position: absolute; left: 120px; bottom: 120px; color: var(--lcg-text, #fff); display: flex; flex-direction: column; align-items: flex-start; }
+    .lt-title { background: var(--lcg-accent, #2f6bff); color: var(--lcg-on-accent, #fff); box-shadow: var(--lcg-shadow, none); border-radius: var(--lcg-radius, 0); padding: 12px 28px; font-size: 40px; font-weight: 800; }
+    .lt-sub { background: var(--lcg-panel-sub, rgba(0,0,0,.8)); border-radius: var(--lcg-radius, 0); padding: 8px 28px; font-size: 24px; }
   `,
 
   // 入场：主标题从左擦出，副标题从主标题下方滑出；出场反向

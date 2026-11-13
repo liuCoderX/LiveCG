@@ -2,7 +2,8 @@
 export const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-export const SIDE_COLOR = { CT: "#5b9bf0", T: "#e8b04b" };
+// 阵营色走主题变量（内联 style 同样生效），回退值为默认配色
+export const SIDE_COLOR = { CT: "var(--lcg-ct, #5b9bf0)", T: "var(--lcg-t, #e8b04b)" };
 
 /** 队伍主色：CS2 下跟随阵营，其它项目用队伍配置色 */
 export const teamColor = (team, match) =>

@@ -15,16 +15,16 @@ export default {
   },
 
   css: `
-    .lu { position: absolute; top: 120px; bottom: 120px; left: 140px; width: 620px; display: flex; flex-direction: column; color: #fff;
-      background: rgba(12,14,20,.92); box-shadow: 0 16px 48px rgba(0,0,0,.5); }
+    .lu { position: absolute; top: 120px; bottom: 120px; left: 140px; width: 620px; display: flex; flex-direction: column; color: var(--lcg-text, #fff);
+      background: var(--lcg-panel, rgba(12,14,20,.92)); box-shadow: var(--lcg-shadow, 0 16px 48px rgba(0,0,0,.5)); border-radius: var(--lcg-radius, 0); overflow: hidden; }
     .lu-head { padding: 22px 32px; background: var(--c); }
     .lu-head small { display: block; font-size: 20px; font-weight: 700; opacity: .85; letter-spacing: .08em; }
     .lu-head b { font-size: 44px; font-weight: 900; }
     .lu-list { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 12px 32px; gap: 4px; overflow: hidden; }
     .lu-row { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 16px; font-size: 28px; font-weight: 700; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
     .lu-num { text-align: center; color: var(--c); font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }
-    .lu-pos { color: #9aa3b5; font-size: 20px; font-weight: 600; }
-    .lu-coach { padding: 16px 32px; font-size: 22px; color: #ccd; background: rgba(0,0,0,.35); }
+    .lu-pos { color: var(--lcg-muted, #9aa3b5); font-size: 20px; font-weight: 600; }
+    .lu-coach { padding: 16px 32px; font-size: 22px; color: var(--lcg-muted, #ccd); background: var(--lcg-panel-sub, rgba(0,0,0,.35)); }
   `,
 
   async in(el) {

@@ -198,6 +198,8 @@ export type ClientMessage =
   | { type: "cs2.reset" }
   /** 立即重连 CasparCG 并重新加载输出 */
   | { type: "casparcg.reconnect" }
+  /** 设置外观（整体替换：预设 + 覆盖值） */
+  | { type: "theme.set"; theme: ThemeConfig }
   // ── 传统体育（M3） ──
   /** 按预设开始一场新比赛：比分、时钟、节次、犯规/暂停全部重置（队名保留） */
   | { type: "match.setup"; preset: SportPresetId }
@@ -279,6 +281,23 @@ export interface AppConfig {
   };
   casparcg: CasparConfig;
   scoreboard: ScoreboardConfig;
+  /** 外观：主题预设 + 本房间的覆盖值（M4b） */
+  theme: ThemeConfig;
+}
+
+/** 主题：apps/graphics/themes/<preset>.json 定义一组 CSS 变量，overrides 在其上覆盖 */
+export interface ThemeConfig {
+  preset: string;
+  /** 变量名必须以 --lcg- 开头，如 { "--lcg-accent": "#c8102e" } */
+  overrides: Record<string, string>;
+}
+
+/** GET /api/themes */
+export interface ThemePreset {
+  id: string;
+  label: string;
+  description?: string;
+  vars: Record<string, string>;
 }
 
 /** 模板元数据：控制台据此生成播出单编辑表单，输出端据此决定叠放顺序 */

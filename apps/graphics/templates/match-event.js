@@ -35,15 +35,15 @@ export default {
   },
 
   css: `
-    .mev { position: absolute; left: 96px; bottom: 120px; display: flex; align-items: stretch; color: #fff; box-shadow: 0 10px 28px rgba(0,0,0,.4); }
+    .mev { position: absolute; left: 96px; bottom: 120px; display: flex; align-items: stretch; color: var(--lcg-text, #fff); box-shadow: var(--lcg-shadow, 0 10px 28px rgba(0,0,0,.4)); border-radius: var(--lcg-radius, 0); overflow: hidden; }
     .mev-kind { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 112px; background: var(--k); font-size: 18px; font-weight: 800; }
     .mev-kind svg { font-size: 40px; }
-    .mev-body { display: flex; flex-direction: column; justify-content: center; padding: 10px 26px; min-width: 360px; background: rgba(14,16,24,.94); border-bottom: 4px solid var(--c); }
+    .mev-body { display: flex; flex-direction: column; justify-content: center; padding: 10px 26px; min-width: 360px; background: var(--lcg-panel, rgba(14,16,24,.94)); border-bottom: 4px solid var(--c); }
     .mev-player { font-size: 38px; font-weight: 800; line-height: 1.2; }
-    .mev-out { font-size: 22px; color: #aab; font-weight: 600; }
+    .mev-out { font-size: 22px; color: var(--lcg-muted, #aab); font-weight: 600; }
     .mev-out b { color: #e5484d; margin-right: 6px; } .mev-player b { color: #3fb950; margin-right: 6px; font-size: .7em; vertical-align: middle; }
-    .mev-sub { font-size: 20px; color: #ccd; font-weight: 600; }
-    .mev-minute { display: grid; place-items: center; padding: 0 22px; background: #0b0d12; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .mev-sub { font-size: 20px; color: var(--lcg-muted, #ccd); font-weight: 600; }
+    .mev-minute { display: grid; place-items: center; padding: 0 22px; background: var(--lcg-panel-strong, #0b0d12); font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
   `,
 
   async in(el) {
