@@ -1,0 +1,13 @@
+{
+  "name": "livecg",
+  "private": true,
+  "version": "0.1.0",
+  "description": "实时字幕图文系统：面向电竞与传统体育直转播的在线包装（CG）平台",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm --filter @livecg/server dev",
+    "start": "pnpm --filter @livecg/server start",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

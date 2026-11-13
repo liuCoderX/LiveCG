@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiveCG Control</title>
+<style>
+  :root { color-scheme: dark; --bg: #14161a; --panel: #1d2026; --line: #2c313a; --text: #e8eaed; --muted: #9aa0a6; --accent: #2f6bff; --live: #e5484d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, "Noto Sans SC", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; }
+  #conn { font-size: 12px; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  input { background: #0f1115; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; flex: 1; }
+  input.num { flex: 0 0 64px; text-align: center; }
+  button { background: #2a2f38; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button.take { background: var(--live); border-color: var(--live); font-weight: 700; }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  .preview { aspect-ratio: 16/9; width: 100%; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; position: relative; background: #000; }
+  .preview iframe { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #2a2f38; color: var(--muted); }
+  .tag.on { background: var(--live); color: #fff; }
+</style>
+</head>
+<body>
+<header><h1>LiveCG 控制台</h1><span id="conn">连接中…</span></header>
+<main>
+  <div>
+    <section>
+      <h2>比分 / 赛况</h2>
+      <div class="row"><input id="homeName" placeholder="主队简称"><input class="num" id="homeScore" type="number"><button data-score="home:1">+1</button><button data-score="home:-1">−1</button></div>
+      <div class="row"><input id="awayName" placeholder="客队简称"><input class="num" id="awayScore" type="number"><button data-score="away:1">+1</button><button data-score="away:-1">−1</button></div>
+      <div class="row"><input id="period" placeholder="局/节/半场，例如 R12 / Q3"><button class="primary" id="applyMatch">应用</button></div>
+      <div class="row">
+        <span>比分条</span><span class="tag" id="tag-scorebug">OFF</span>
+        <button class="take" data-show="scorebug">TAKE</button><button data-hide="scorebug">OUT</button>
+      </div>
+    </section>
+    <section style="margin-top:16px">
+      <h2>人名条</h2>
+      <div class="row"><input id="ltTitle" placeholder="主标题，例如 解说 张三"></div>
+      <div class="row"><input id="ltSub" placeholder="副标题，例如 LiveCG 电竞频道"></div>
+      <div class="row">
+        <span class="tag" id="tag-lt">OFF</span>
+        <button class="take" data-show="lt">TAKE</button><button data-hide="lt">OUT</button>
+        <button id="clearAll">全部下屏</button>
+      </div>
+    </section>
+  </div>
+  <section>
+    <h2>PGM 预览</h2>
+    <div class="preview" id="pv"><iframe src="/graphics/?preview" title="输出预览"></iframe></div>
+    <p style="color:var(--muted);font-size:12px">输出地址：<code>/graphics/</code>，在 OBS / vMix / CasparCG 中以 1920×1080 Browser Source 加载。</p>
+  </section>
+</main>
+<script type="module">
+  import { connect } from "/graphics/lib/livecg-client.js";
+  const $ = (id) => document.getElementById(id);
+  let state;
+
+  const client = connect({
+    role: "control",
+    onState(s) {
+      state = s;
+      $("conn").textContent = `已连接 · rev ${s.rev} · ${s.match.sport}`;
+      for (const [id, v] of [["homeName", s.match.home.shortName], ["awayName", s.match.away.shortName], ["homeScore", s.match.home.score], ["awayScore", s.match.away.score], ["period", s.match.period]]) {
+        if (document.activeElement !== $(id)) $(id).value = v ?? "";
+      }
+      for (const [layer, tag] of [["scorebug", "tag-scorebug"], ["lt", "tag-lt"]]) {
+        const on = !!s.layers[layer]?.visible;
+        $(tag).textContent = on ? "ON AIR" : "OFF";
+        $(tag).classList.toggle("on", on);
+      }
+    },
+  });
+
+  $("applyMatch").onclick = () => client.send({ type: "match.patch", patch: {
+    period: $("period").value,
+    home: { shortName: $("homeName").value, score: Number($("homeScore").value) },
+    away: { shortName: $("awayName").value, score: Number($("awayScore").value) },
+  }});
+  document.querySelectorAll("[data-score]").forEach((b) => (b.onclick = () => {
+    const [side, d] = b.dataset.score.split(":");
+    client.send({ type: "match.patch", patch: { [side]: { score: Math.max(0, state.match[side].score + Number(d)) } } });
+  }));
+  const layerDefs = {
+    scorebug: () => ({ template: "scorebug", data: {} }),
+    lt: () => ({ template: "lower-third", data: { title: $("ltTitle").value, subtitle: $("ltSub").value } }),
+  };
+  document.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => client.send({ type: "graphic.show", layer: b.dataset.show, ...layerDefs[b.dataset.show]() })));
+  document.querySelectorAll("[data-hide]").forEach((b) => (b.onclick = () => client.send({ type: "graphic.hide", layer: b.dataset.hide })));
+  $("clearAll").onclick = () => client.send({ type: "graphic.clearAll" });
+
+  const fit = () => { const f = $("pv").querySelector("iframe"); f.style.transform = `scale(${$("pv").clientWidth / 1920})`; };
+  new ResizeObserver(fit).observe($("pv"));
+</script>
+</body>
+</html>

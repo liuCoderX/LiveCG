@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LiveCG Output</title>
+<style>
+  /* 输出画布固定 1920x1080、透明背景，直接作为 Browser Source / HTML Producer 叠加 */
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif; }
+  body.preview { background: repeating-conic-gradient(#2a2a2a 0 25%, #333 0 50%) 0 0 / 40px 40px; }
+  .layer { position: absolute; inset: 0; opacity: 0; transform: translateY(24px); transition: opacity .35s ease, transform .35s ease; pointer-events: none; }
+  .layer.on { opacity: 1; transform: none; }
+
+  .scorebug { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; height: 56px; color: #fff; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .sb-team { display: flex; align-items: center; background: #111c; border-bottom: 4px solid var(--c); }
+  .sb-name { padding: 0 20px; font-size: 26px; letter-spacing: .04em; }
+  .sb-score { min-width: 64px; height: 100%; display: grid; place-items: center; background: var(--c); font-size: 32px; font-variant-numeric: tabular-nums; }
+  .sb-mid { display: grid; place-items: center; padding: 0 18px; background: #000d; font-size: 18px; color: #ddd; min-width: 60px; }
+
+  .lower-third { position: absolute; left: 120px; bottom: 120px; color: #fff; }
+  .lt-title { background: #2f6bff; padding: 12px 28px; font-size: 40px; font-weight: 800; }
+  .lt-sub { background: #000c; padding: 8px 28px; font-size: 24px; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module">
+  import { connect } from "./lib/livecg-client.js";
+
+  // ?preview 显示棋盘格背景；?layers=scorebug,lt 只渲染指定图层（多路输出/分层键控）
+  const params = new URLSearchParams(location.search);
+  if (params.has("preview")) document.body.classList.add("preview");
+  const only = params.get("layers")?.split(",");
+
+  const stage = document.getElementById("stage");
+  const nodes = new Map();
+  const templates = new Map();
+  const loadTemplate = async (name) => {
+    if (!templates.has(name)) templates.set(name, import(`./templates/${name}.js`).then((m) => m.default));
+    return templates.get(name);
+  };
+
+  connect({
+    role: "graphics",
+    async onState(state) {
+      for (const layer of Object.values(state.layers)) {
+        if (only && !only.includes(layer.layer)) continue;
+        let el = nodes.get(layer.layer);
+        if (!el) {
+          el = Object.assign(document.createElement("div"), { className: "layer" });
+          el.dataset.layer = layer.layer;
+          stage.appendChild(el);
+          nodes.set(layer.layer, el);
+        }
+        try {
+          const tpl = await loadTemplate(layer.template);
+          tpl.render(el, { match: state.match, data: layer.data, state });
+        } catch (err) {
+          console.error(`template "${layer.template}" failed`, err);
+        }
+        requestAnimationFrame(() => el.classList.toggle("on", layer.visible));
+      }
+    },
+  });
+</script>
+</body>
+</html>

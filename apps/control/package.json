@@ -1,0 +1,6 @@
+{
+  "name": "@livecg/control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "导播/图文操作员控制台（MVP 为原生 HTML，后续迁移 React）"
+}
