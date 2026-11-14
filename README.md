@@ -31,6 +31,56 @@ Linux 服务器上可以直接运行 `deploy/install.sh` 一键安装成 systemd
 监看参数：`?preview` 棋盘格背景、`?safe` 安全区参考线、`?layers=scorebug,lt` 只输出指定图层。
 不带 `room` 的地址一律指向默认房间，旧版本配好的 OBS / CasparCG 地址无需修改。
 
+### Windows 本地运行（体验 / 开发）
+
+以下命令在「命令提示符」（cmd）里运行；PowerShell 的差别见最后一步。
+
+1. 安装 [Node.js](https://nodejs.org/) 22 或更新（LTS 即可），装完**重新打开**命令行窗口，`node -v` 确认版本。
+2. 安装 pnpm。本项目用 pnpm 管理依赖，**不要用 `npm install` / `npm start`**（会提示「'pnpm' 不是内部或外部命令」）。版本与 `package.json` 里 `packageManager` 一致，国内网络加上镜像，否则可能一直卡住不动：
+
+   ```bash
+   npm install -g pnpm@10.28.0 --registry=https://registry.npmmirror.com
+   ```
+
+   让 pnpm 之后也走镜像（在国外或网络通畅时可跳过）：
+
+   ```bash
+   pnpm config set registry https://registry.npmmirror.com
+   ```
+
+   `pnpm -v` 能显示版本号即可；还提示找不到命令就关掉窗口重开。
+3. 取代码（没装 Git 也可以在 GitHub 页面点「Code → Download ZIP」解压），进入项目目录后安装依赖并启动：
+
+   ```bash
+   pnpm install
+   ```
+
+   ```bash
+   pnpm start
+   ```
+
+   看到几行 `[livecg] ...` 即启动成功，这个窗口不要关。管理员 `admin` 的初始密码打印在这个窗口里（也写在 `data\runtime\initial-admin-password.txt`），首次登录必须修改。
+4. 另开一个命令行窗口，进入项目目录，推送一场模拟 CS2 比赛（不用开游戏）：
+
+   ```bash
+   pnpm sim:cs2 --speed 1
+   ```
+
+   浏览器打开 http://localhost:3000/ 登录，进入默认房间的控制台；再开一个标签打开 PGM 输出页（地址见上），在播出单上点 ▶ 上屏即可看到效果。
+5. 只是看看、不想登录时，可以在启动前关闭鉴权（**仅限本机体验，不要在播出环境使用**）。cmd：
+
+   ```bash
+   set LIVECG_AUTH=off
+   ```
+
+   PowerShell：
+
+   ```bash
+   $env:LIVECG_AUTH="off"
+   ```
+
+   然后在同一个窗口里运行 `pnpm start`。这个设置只对当前窗口有效，关掉窗口就恢复。
+
 ## 多房间（同时转播多场比赛）
 
 一台 LiveCG 服务可以同时承载多场比赛，每个**房间**是一场独立的赛事：比分、时钟、播出单、PVW/PGM、CS2 接入、计分器和 CasparCG 连接都互不影响。
