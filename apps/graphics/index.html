@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LiveCG Output</title>
+<style>
+  /* 输出画布固定 1920x1080、透明背景，直接作为 Browser Source / CasparCG HTML Producer 叠加 */
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: var(--lcg-font, "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif); }
+  body.preview { background: repeating-conic-gradient(#2a2a2a 0 25%, #333 0 50%) 0 0 / 40px 40px; }
+  .layer { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
+  .layer.on { visibility: visible; }
+  /* ?safe 显示字幕安全区（90%）与动作安全区（93%）参考线，仅用于监看 */
+  body.safe::after { content: ""; position: absolute; inset: 3.5% ; outline: 1px dashed rgba(255,255,255,.35); pointer-events: none; z-index: 9999; }
+  body.safe::before { content: ""; position: absolute; inset: 5%; outline: 1px dashed rgba(255,200,0,.45); pointer-events: none; z-index: 9999; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module">
+  import { connect } from "./lib/livecg-client.js";
+  import { animate } from "./lib/util.js";
+
+  /**
+   * URL 参数：
+   *   ?room=<房间>       哪个房间（默认 default）
+   *   ?channel=pgm|pvw   输出哪一路（默认 pgm）
+   *   ?layers=a,b        只渲染指定图层（分层键控 / 多路输出）
+   *   ?preview           棋盘格背景（监看用）
+   *   ?safe              安全区参考线（监看用）
+   */
+  const params = new URLSearchParams(location.search);
+  const channel = params.get("channel") === "pvw" ? "pvw" : "pgm";
+  if (params.has("preview")) document.body.classList.add("preview");
+  if (params.has("safe")) document.body.classList.add("safe");
+  document.body.dataset.channel = channel;
+  const only = params.get("layers")?.split(",");
+
+  const stage = document.getElementById("stage");
+  const templates = new Map();
+  /** 模板模块：{ meta, css, render, tick?, in?, out? }，css 首次加载时注入一次 */
+  // 模板来源：本页所在服务器优先；主备部署时（?failover=）本机宕掉后从备机加载
+  const templateBases = [
+    new URL("./templates/", location.href).href,
+    ...(params.get("failover") ?? "").split(",").map((s) => s.trim()).filter(Boolean).flatMap((u) => {
+      try { return [new URL("/graphics/templates/", u).href]; } catch { return []; }
+    }),
+  ];
+  const importTemplate = async (name) => {
+    let lastErr;
+    for (const base of templateBases) {
+      try {
+        return await import(`${base}${name}.js`);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
+  };
+  const loadTemplate = (name) => {
+    if (!templates.has(name)) {
+      const p = importTemplate(name).then((m) => {
+        const tpl = m.default;
+        if (tpl.css) document.head.appendChild(Object.assign(document.createElement("style"), { textContent: tpl.css }));
+        return tpl;
+      });
+      // 加载失败不缓存，下次可以重试（例如服务器刚好在重启）
+      p.catch(() => templates.delete(name));
+      templates.set(name, p);
+    }
+    return templates.get(name);
+  };
+  // ───────────── 主题 ─────────────
+  // 主题 = 预设（themes/<id>.json 里的一组 --lcg-* 变量）+ 房间覆盖值，写到 :root 上，所有模板即时生效
+  const themeCache = new Map();
+  const loadThemePreset = (id) => {
+    if (!themeCache.has(id)) {
+      const urls = templateBases.map((b) => new URL(`../themes/${id}.json`, b).href);
+      const p = (async () => {
+        for (const u of urls) {
+          try {
+            const r = await fetch(u);
+            if (r.ok) return await r.json();
+          } catch { /* 下一个 */ }
+        }
+        return { vars: {} }; // 预设丢失时退回默认外观（模板里的回退值）
+      })();
+      themeCache.set(id, p);
+    }
+    return themeCache.get(id);
+  };
+  let themeKey = "";
+  let appliedVars = [];
+  const applyTheme = async (theme) => {
+    const t = theme ?? { preset: "default", overrides: {} };
+    const key = JSON.stringify(t);
+    if (key === themeKey) return;
+    themeKey = key;
+    const preset = await loadThemePreset(t.preset);
+    if (key !== themeKey) return; // 加载期间又换了主题
+    const vars = { ...(preset.vars ?? {}), ...(t.overrides ?? {}) };
+    const root = document.documentElement.style;
+    for (const k of appliedVars) if (!(k in vars)) root.removeProperty(k);
+    appliedVars = Object.keys(vars).filter((k) => /^--lcg-[a-z0-9-]+$/.test(k));
+    for (const k of appliedVars) root.setProperty(k, vars[k]);
+  };
+
+  // 打开页面时预加载全部模板：首次上屏不用等网络；主机宕机后已加载的模板仍可用
+  fetch(new URL("/api/templates", location.href))
+    .then((r) => r.json())
+    .then((names) => names.forEach((n) => loadTemplate(n).catch(() => {})))
+    .catch(() => {});
+
+  // 时钟（主时钟 clock、进攻时钟 shotClock）：用本机收到该锚点的时刻插值，
+  // 不依赖服务器与播出机的系统时间一致
+  const clockRefs = new Map();
+  const trackClock = (name, clock) => {
+    const key = clock ? `${clock.ms}|${clock.updatedAt}|${clock.running}` : "";
+    if (clockRefs.get(name)?.key !== key) clockRefs.set(name, { key, localAt: Date.now() });
+  };
+  const clockMs = (name, clock) => {
+    if (!clock) return undefined;
+    if (!clock.running) return clock.ms;
+    const d = Date.now() - (clockRefs.get(name)?.localAt ?? Date.now());
+    return clock.direction === "down" ? Math.max(0, clock.ms - d) : clock.ms + d;
+  };
+
+  // ───────────── 图层状态机 ─────────────
+  // status: "off" | "on"。期望状态（desired）随推送随时更新，reconcile 串行地把实际状态推向期望：
+  //   - 同一次上屏（takeId 不变）的数据刷新 → 只重绘，不播动画
+  //   - 新的上屏 / 换模板 → 先播完出场，再播入场
+  //   - 动画进行中到来的更新会合并，动画结束后只处理最新一次
+  const DEFAULT_IN = [{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "none" }];
+  const DEFAULT_OUT = [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(24px)" }];
+  const entries = new Map();
+
+  const entryFor = (name) => {
+    let e = entries.get(name);
+    if (!e) {
+      const el = Object.assign(document.createElement("div"), { className: "layer" });
+      el.dataset.layer = name;
+      stage.appendChild(el);
+      e = { el, status: "off", busy: false };
+      entries.set(name, e);
+    }
+    return e;
+  };
+
+  const safely = (fn, label) => {
+    try { return fn(); } catch (err) { console.error(`[livecg] ${label}`, err); }
+  };
+
+  const playIn = (e) => safely(() => (e.tpl.in ? e.tpl.in(e.el, e.ctx) : animate(e.el, DEFAULT_IN, { duration: 300 })), "in");
+  const playOut = async (e) => {
+    await safely(() => (e.tpl.out ? e.tpl.out(e.el, e.ctx) : animate(e.el, DEFAULT_OUT, { duration: 250, easing: "ease-in" })), "out");
+    e.el.classList.remove("on");
+    e.status = "off";
+  };
+
+  async function reconcile(e) {
+    if (e.busy) return;
+    e.busy = true;
+    try {
+      for (;;) {
+        const d = e.desired;
+        if (!d.visible) {
+          if (e.status === "on") await playOut(e);
+        } else {
+          let tpl;
+          try {
+            tpl = await loadTemplate(d.layer.template);
+          } catch (err) {
+            console.error(`[livecg] template "${d.layer.template}" failed to load`, err);
+            if (e.desired === d) break;
+            continue;
+          }
+          if (e.status === "on" && (e.takeId !== d.layer.takeId || e.tpl !== tpl)) await playOut(e);
+          const m = d.state.match;
+          e.ctx = { match: m, data: d.layer.data, state: d.state, channel, clockMs: (name = "clock") => clockMs(name, m[name]) };
+          if (e.status === "off") {
+            if (e.tpl !== tpl) {
+              e.el.replaceChildren();
+              e.tpl = tpl;
+              e.el.style.zIndex = String(tpl.meta?.z ?? 0);
+            }
+            safely(() => tpl.render(e.el, e.ctx), "render");
+            safely(() => tpl.tick?.(e.el, e.ctx), "tick");
+            e.takeId = d.layer.takeId;
+            e.status = "on";
+            e.el.classList.add("on");
+            await playIn(e);
+          } else {
+            safely(() => tpl.render(e.el, e.ctx), "render");
+          }
+        }
+        if (e.desired === d) break;
+      }
+    } finally {
+      e.busy = false;
+    }
+  }
+
+  const setDesired = (name, desired) => {
+    const e = entryFor(name);
+    e.desired = desired;
+    reconcile(e);
+  };
+
+  connect({
+    role: "graphics",
+    onState(state) {
+      applyTheme(state.config.theme);
+      trackClock("clock", state.match.clock);
+      trackClock("shotClock", state.match.shotClock);
+
+      const source = channel === "pvw" ? state.preview : state.layers;
+      const seen = new Set();
+      for (const layer of Object.values(source)) {
+        if (only && !only.includes(layer.layer)) continue;
+        seen.add(layer.layer);
+        setDesired(layer.layer, { visible: layer.visible, layer, state });
+      }
+      // PVW 被 TAKE 走或清空后，图层会从 source 中消失 → 出场
+      for (const name of entries.keys()) if (!seen.has(name)) setDesired(name, { visible: false });
+    },
+  });
+
+  // 逐帧钩子：时钟、限时淡出等不依赖推送的动画
+  const loop = () => {
+    for (const e of entries.values()) {
+      if (e.status === "on" && e.tpl?.tick) safely(() => e.tpl.tick(e.el, e.ctx), "tick");
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>

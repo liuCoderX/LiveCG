@@ -1,0 +1,24 @@
+{
+  "name": "@livecg/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p .",
+    "test": "tsx --test test/*.test.ts",
+    "sim:cs2": "tsx scripts/cs2-sim.ts",
+    "sim:scoreboard": "tsx scripts/scoreboard-sim.ts"
+  },
+  "dependencies": {
+    "@livecg/shared": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

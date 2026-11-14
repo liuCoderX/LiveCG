@@ -1,0 +1,6 @@
+{
+  "name": "@livecg/graphics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "图文模板（HTML5 Browser Source，供 OBS / vMix / CasparCG HTML Producer 使用）"
+}

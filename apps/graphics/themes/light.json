@@ -1,0 +1,19 @@
+{
+  "id": "light",
+  "label": "明亮",
+  "description": "白色面板、深色文字，适合白天户外或浅色画面",
+  "vars": {
+    "--lcg-text": "#14161a",
+    "--lcg-muted": "#5b6475",
+    "--lcg-panel": "rgba(255,255,255,.95)",
+    "--lcg-panel-strong": "#e8ebf1",
+    "--lcg-panel-sub": "rgba(255,255,255,.88)",
+    "--lcg-accent": "#2f6bff",
+    "--lcg-on-accent": "#ffffff",
+    "--lcg-highlight": "#b86e00",
+    "--lcg-danger": "#d92d3a",
+    "--lcg-positive": "#1f8a3c",
+    "--lcg-radius": "6px",
+    "--lcg-shadow": "0 8px 24px rgba(0,0,0,.18)"
+  }
+}
