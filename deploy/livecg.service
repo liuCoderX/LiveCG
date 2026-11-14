@@ -1,0 +1,31 @@
+# LiveCG systemd 服务（Linux）
+#
+# 安装：
+#   sudo useradd --system --home /opt/LiveCG livecg            # 运行服务的账号（已有可跳过）
+#   sudo mkdir -p /var/lib/livecg && sudo chown livecg /var/lib/livecg   # 数据目录（LIVECG_DATA_DIR）
+#   sudo cp deploy/livecg.service /etc/systemd/system/livecg.service
+#   按实际情况修改下面的 WorkingDirectory、User、pnpm 路径（which pnpm）
+#   sudo systemctl daemon-reload && sudo systemctl enable --now livecg
+# 查看日志：journalctl -u livecg -f
+#
+# 配置写在项目根目录的 .env（服务启动时自动读取）；也可以取消下面 EnvironmentFile 的注释，
+# 改用 /etc/livecg.env（这里设置的变量优先于 .env）。
+# 更新代码后先在项目根目录运行 pnpm install && pnpm build，再 sudo systemctl restart livecg。
+
+[Unit]
+Description=LiveCG 实时字幕图文系统
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=livecg
+WorkingDirectory=/opt/LiveCG
+# EnvironmentFile=/etc/livecg.env
+ExecStart=/usr/bin/pnpm --filter @livecg/server start
+Restart=always
+RestartSec=2
+# 崩溃后 2 秒内拉起；配置了主备时，重启的节点会先探测对端再决定角色，不会抢播出
+
+[Install]
+WantedBy=multi-user.target

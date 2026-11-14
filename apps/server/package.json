@@ -9,7 +9,9 @@
     "typecheck": "tsc -p .",
     "test": "tsx --test test/*.test.ts",
     "sim:cs2": "tsx scripts/cs2-sim.ts",
-    "sim:scoreboard": "tsx scripts/scoreboard-sim.ts"
+    "sim:scoreboard": "tsx scripts/scoreboard-sim.ts",
+    "replay:cs2": "tsx scripts/cs2-replay.ts",
+    "preflight": "tsx scripts/preflight.ts"
   },
   "dependencies": {
     "@livecg/shared": "workspace:*",

@@ -1,6 +1,13 @@
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.ts";
+import { loadEnvFile } from "./env.ts";
+
+// 项目根目录的 .env（或 LIVECG_ENV_FILE 指定的文件）；已设置的环境变量优先
+const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+const envFile = process.env.LIVECG_ENV_FILE ?? join(repoRoot, ".env");
+const loadedEnv = loadEnvFile(envFile);
+if (loadedEnv.length) console.log(`[livecg] 从 ${envFile} 读取了 ${loadedEnv.length} 个配置：${loadedEnv.join(", ")}`);
 
 const PORT = Number(process.env.PORT ?? 3000);
 const appsDir = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -25,8 +32,10 @@ const app = createApp({
         },
       }
     : {}),
+  captureCs2: process.env.LIVECG_CS2_CAPTURE === "1",
 });
-if (process.env.LIVECG_PEER_URL && (process.env.LIVECG_REPLICATION_TOKEN ?? "").length < 16) {
+if (process.env.LIVECG_CS2_CAPTURE === "1") console.log(`[livecg] 正在录制 CS2 原始数据到 ${join(dataDir, "captures")}（联调结束后请关闭）`);
+if (process.env.LIVECG_PEER_URL &&(process.env.LIVECG_REPLICATION_TOKEN ?? "").length < 16) {
   console.error("[livecg] 配置了 LIVECG_PEER_URL 时必须设置至少 16 位的 LIVECG_REPLICATION_TOKEN（两台机器相同）");
   process.exit(1);
 }

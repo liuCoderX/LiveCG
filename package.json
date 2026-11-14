@@ -14,6 +14,8 @@
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
     "sim:cs2": "pnpm --filter @livecg/server sim:cs2",
-    "sim:scoreboard": "pnpm --filter @livecg/server sim:scoreboard"
+    "sim:scoreboard": "pnpm --filter @livecg/server sim:scoreboard",
+    "replay:cs2": "pnpm --filter @livecg/server replay:cs2",
+    "preflight": "pnpm --filter @livecg/server preflight"
   }
 }

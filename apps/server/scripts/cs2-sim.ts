@@ -7,7 +7,12 @@
  */
 import { parseArgs } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { simulateMatch } from "../src/sim/cs2-sim.ts";
+import { loadEnvFile } from "../src/env.ts";
+
+loadEnvFile(process.env.LIVECG_ENV_FILE ?? resolve(fileURLToPath(new URL("../../../", import.meta.url)), ".env"));
 
 const { values } = parseArgs({
   options: {

@@ -11,6 +11,7 @@ import { DEFAULT_ROOM } from "./store.ts";
 import { announceInitialPassword, AuthError, LoginLimiter, publicUser, SessionStore, UserStore } from "./auth/auth.ts";
 import { ANONYMOUS, AUTH_DISABLED, atLeast, canAccessRoom, denyReason, type Principal } from "./auth/permissions.ts";
 import { AuditLog } from "./auth/audit.ts";
+import { Cs2Capture } from "./capture.ts";
 
 export interface AppOptions {
   /** apps/ 目录（静态文件根） */
@@ -28,6 +29,8 @@ export interface AppOptions {
   };
   /** 主备：不配置则为单机 */
   ha?: Omit<HaOptions, "dataDir">;
+  /** 录制 CS2 GSI 原始数据到 <数据目录>/captures/（联调排查用，需要 dataDir） */
+  captureCs2?: boolean;
 }
 
 const MIME: Record<string, string> = {
@@ -120,6 +123,7 @@ export function createApp(opts: AppOptions) {
   const sessions = new SessionStore(opts.dataDir ? join(opts.dataDir, "sessions.json") : undefined);
   const limiter = new LoginLimiter();
   const audit = new AuditLog(opts.dataDir);
+  const capture = opts.captureCs2 && opts.dataDir ? new Cs2Capture(opts.dataDir) : undefined;
   if (authEnabled) {
     const { createdAdmin } = users.load(opts.auth?.initialAdminPassword);
     if (createdAdmin && !opts.auth?.initialAdminPassword) announceInitialPassword(opts.dataDir, createdAdmin);
@@ -275,6 +279,8 @@ export function createApp(opts: AppOptions) {
           res.writeHead(401).end();
           return;
         }
+        // 录制放在鉴权之后：只录正确 token 发来的数据；备机也录（便于对比两台收到的数据）
+        capture?.write(room.id, payload);
         room.ingestCs2(payload);
         res.writeHead(200).end();
         return;
