@@ -11,6 +11,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { loadEnvFile } from "../src/env.ts";
+import { CORE_ICON_NAMES, scanIconPack } from "../src/icons.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const envFile = process.env.LIVECG_ENV_FILE ?? join(repoRoot, ".env");
@@ -168,6 +169,23 @@ try {
   else warn("没有找到中文字体");
 } catch {
   console.log("  · 本机没有 fc-list（Windows / macOS 请在系统字体设置里确认）");
+}
+
+section("CS2 图标包（游戏原版图标）");
+{
+  const iconDir = join(dataDir, "icons", "cs2");
+  const pack = await scanIconPack(iconDir);
+  const have = Object.keys(pack);
+  if (!have.length) {
+    warn(`${iconDir} 里没有图标：武器显示为文字、其它用内置图标。导出方法见 docs/ICONS-CS2.md`);
+  } else {
+    const missing = CORE_ICON_NAMES.filter((n) => !pack[n]);
+    ok(`${have.length} 个图标`);
+    if (missing.length) warn(`缺少 ${missing.length} 个常用图标（会显示为文字 / 内置图标）：${missing.join("、")}`);
+    else ok("常用武器、道具、爆头、C4、拆弹器都齐了");
+    const odd = have.filter((n) => pack[n].ratio === 1 && !/^(headshot|elimination|bomb|defuse|time|c4|defuser|armor|armor_helmet|hegrenade|flashbang|smokegrenade|molotov|incgrenade|decoy)$/.test(n));
+    if (odd.length) warn(`这些武器图标读不出宽高比（会按正方形显示）：${odd.slice(0, 8).join("、")}`);
+  }
 }
 
 console.log(`\n结果：${errors} 个问题，${warnings} 个提醒`);

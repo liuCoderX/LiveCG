@@ -411,6 +411,8 @@ export interface Cs2Player {
   /** 当前主武器名（去掉 weapon_ 前缀） */
   weapon?: string;
   hasBomb: boolean;
+  /** 身上的道具（hegrenade / flashbang / smokegrenade / molotov / incgrenade / decoy），闪光弹两颗时出现两次 */
+  grenades?: string[];
 }
 
 export interface Cs2TeamEconomy {

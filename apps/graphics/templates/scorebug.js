@@ -1,6 +1,7 @@
 // 比分条：数据来自 match 状态（自动跟随 CS2 GSI 或手动比分）
 // CS2 下额外显示：阵营色、回合计时、炸弹状态、回合历史
-import { animate, fmtClock, ICON, setStyle, setText, teamColor, SIDE_COLOR } from "../lib/util.js";
+import { animate, fmtClock, setStyle, setText, teamColor, SIDE_COLOR } from "../lib/util.js";
+import { statusIcon } from "../lib/icons.js";
 
 export default {
   meta: { label: "比分条", layer: "scorebug", z: 10 },
@@ -30,7 +31,9 @@ export default {
     .sb-period { font-size: 14px; color: var(--lcg-muted, #aab); letter-spacing: .08em; }
     .sb-clock { font-size: 24px; font-variant-numeric: tabular-nums; }
     .sb-mid.bomb { background: #b3261e; animation: sb-pulse 1s ease-in-out infinite; }
-    .sb-mid.bomb .sb-period { color: #fff; }
+    .sb-mid.bomb .sb-period { display: none; }
+    .sb-c4 { display: none; font-size: 16px; line-height: 1; color: #fff; }
+    .sb-mid.bomb .sb-c4 { display: block; }
     @keyframes sb-pulse { 50% { background: var(--lcg-danger, #e5484d); } }
     .sb-map { margin-top: 4px; font-size: 13px; color: var(--lcg-muted, #ccd); background: var(--lcg-panel-sub, rgba(0,0,0,.7)); border-radius: var(--lcg-radius, 0); padding: 2px 12px; letter-spacing: .06em; text-transform: uppercase; }
     .sb-history { display: flex; gap: 3px; margin-top: 4px; }
@@ -45,7 +48,7 @@ export default {
           <div class="sb-main">
             <div class="sb-team home"><span class="sb-side"></span><span class="sb-name"></span></div>
             <div class="sb-score home"></div>
-            <div class="sb-mid"><span class="sb-period"></span><span class="sb-clock"></span></div>
+            <div class="sb-mid"><span class="sb-period"></span><span class="sb-c4"></span><span class="sb-clock"></span></div>
             <div class="sb-score away"></div>
             <div class="sb-team away"><span class="sb-name"></span><span class="sb-side"></span></div>
           </div>
@@ -65,7 +68,10 @@ export default {
       side.hidden = !cs2;
     }
     setText(el.querySelector(".sb-period"), match.period);
+    // 已下包：中间块变红闪烁，回合号换成 C4 图标
     el.querySelector(".sb-mid").classList.toggle("bomb", cs2?.bomb === "planted");
+    const c4 = el.querySelector(".sb-c4");
+    if (cs2?.bomb === "planted" && !c4.firstChild) c4.innerHTML = statusIcon("c4");
 
     const map = el.querySelector(".sb-map");
     setText(map, cs2?.mapName?.replace(/^de_/, "") ?? "");
@@ -78,7 +84,7 @@ export default {
     if (strip.dataset.sig !== sig) {
       strip.dataset.sig = sig;
       strip.innerHTML = hist
-        .map((r) => `${r.round === 13 ? '<i class="gap"></i>' : ""}<i style="background:${SIDE_COLOR[r.winnerSide]}" title="R${r.round}">${ICON[r.reason] ?? ""}</i>`)
+        .map((r) => `${r.round === 13 ? '<i class="gap"></i>' : ""}<i style="background:${SIDE_COLOR[r.winnerSide]}" title="R${r.round}">${statusIcon(r.reason)}</i>`)
         .join("");
     }
   },

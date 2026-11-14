@@ -44,6 +44,14 @@ const KILLFEED_SIZE = 6;
 const HISTORY_SIZE = 30;
 const other = (t: TeamKey): TeamKey => (t === "home" ? "away" : "home");
 const PRIMARY_TYPES = new Set(["Rifle", "SniperRifle", "Submachine Gun", "Shotgun", "Machine Gun"]);
+/** 道具按惯例顺序显示：高爆、闪光、烟雾、燃烧、诱饵 */
+const GRENADE_ORDER = ["hegrenade", "flashbang", "smokegrenade", "molotov", "incgrenade", "decoy"];
+const grenadesOf = (weapons: any[]): string[] =>
+  weapons
+    .filter((w) => w?.type === "Grenade" && typeof w.name === "string")
+    // 闪光弹可以带两颗（ammo_reserve = 2）
+    .flatMap((w) => Array<string>(Math.min(2, Math.max(1, Number(w.ammo_reserve) || 1))).fill(w.name.replace(/^weapon_/, "")))
+    .sort((a, b) => (GRENADE_ORDER.indexOf(a) + 99) % 99 - (GRENADE_ORDER.indexOf(b) + 99) % 99);
 
 export class Cs2Adapter {
   /** 已学习的阵容：steamid → 队伍。选手不会换队，所以这是最可靠的换边依据 */
@@ -278,6 +286,7 @@ export class Cs2Adapter {
         alive: (st.health ?? 0) > 0,
         weapon: primary?.name?.replace(/^weapon_/, ""),
         hasBomb: weapons.some((w) => w.type === "C4"),
+        grenades: grenadesOf(weapons),
         killHs: st.round_killhs ?? 0,
         // 击杀信息要用「当前手持」武器
         activeWeapon: weapons.find((w) => w.state === "active")?.name?.replace(/^weapon_/, ""),

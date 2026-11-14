@@ -58,8 +58,18 @@ export const ICON = {
   // 护甲 / 头盔 / 拆弹器 / C4
   armor: svg('<path d="M8 1L2.5 3v4.2c0 3.5 2.4 6.4 5.5 7.8 3.1-1.4 5.5-4.3 5.5-7.8V3z"/>'),
   helmet: svg('<path d="M8 2.5C4.4 2.5 2 5.1 2 8.5V11h12V8.5c0-3.4-2.4-6-6-6zM1 12h14v1.5H1z"/>'),
-  kit: svg('<path d="M3 2l4.2 5.2L3.6 13 5 14l3-4.7 3 4.7 1.4-1-3.6-5.8L13 2l-1.4-.9L8 6.2 4.4 1.1z"/>'),
+  // 拆弹器：工具包
+  kit: svg('<path fill-rule="evenodd" d="M2 5h12v9H2zm4.2 2.4v1.8h-1.8v1.6h1.8v1.8h1.6v-1.8h1.8V9.2H7.8V7.4z"/><path d="M5.5 2.2h5v2.3H9.2v-1H6.8v1H5.5z"/>'),
   c4: svg('<path d="M2 4h12v9H2zM4 6v2h2V6zm3 0v2h2V6zm3 0v2h2V6zM4 9.5V11h8V9.5zM6 1.5h4V3H6z"/>'),
+  // 爆头：准星
+  headshot: svg('<path fill-rule="evenodd" d="M8 2.2a5.8 5.8 0 1 1 0 11.6A5.8 5.8 0 0 1 8 2.2zm0 1.5a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 0 0 0-8.6z"/><path d="M7.3 0h1.4v4.6H7.3zm0 11.4h1.4V16H7.3zM0 7.3h4.6v1.4H0zm11.4 0H16v1.4h-4.6z"/><circle cx="8" cy="8" r="1.5"/>'),
+  // 道具（内置的简化图形；放了图标包时用游戏原版图标）
+  hegrenade: svg('<circle cx="8" cy="9.6" r="5"/><path d="M6.4 2.2h3.2v2.6H6.4zm3.6.3 3.1-1.2.5 1.3-3.1 1.2z"/>'),
+  flashbang: svg('<path fill-rule="evenodd" d="M5 4.2h6v10.6H5zM6 8.6h4v1.2H6z"/><path d="M6.2 1.4h3.6v2.2H6.2zm3.9.4 2.6-.9.4 1.1-2.6 1z"/>'),
+  smokegrenade: svg('<path fill-rule="evenodd" d="M4.2 4.2h7.6v10.6H4.2zm1.2 2.6h5.2v1.1H5.4zm0 2.6h5.2v1.1H5.4z"/><path d="M6.2 1.4h3.6v2.2H6.2z"/>'),
+  molotov: svg('<path d="M6.4 6.2h3.2v1.5l1.6 2.1v5.2H4.8V9.8l1.6-2.1zM7.6 4.6h.8v1.2h-.8zM8 .6c1.4 1.3 1.6 2.4.8 3.6H7.2C6.4 3 6.6 1.9 8 .6z"/>'),
+  incgrenade: svg('<path d="M4.8 7h6.4v7.8H4.8zM8 .8c2 1.8 2.4 3.4 1.3 5.2H6.7C5.6 4.2 6 2.6 8 .8z"/>'),
+  decoy: svg('<path fill-rule="evenodd" d="M8 4a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 8 4zm0 2.9a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6z"/><path d="M7 1.4h2v2.2H7z"/>'),
   unknown: "",
 };
 

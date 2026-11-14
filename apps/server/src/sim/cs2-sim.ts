@@ -98,7 +98,13 @@ export function* simulateMatch(opts: SimOptions = {}): Generator<SimFrame> {
       weapon_0: { name: "weapon_knife", type: "Knife", state: "holstered" },
       weapon_1: { name: ct ? "weapon_usp_silencer" : "weapon_glock", type: "Pistol", state: rifle ? "holstered" : "active" },
     };
-    if (rifle) ws.weapon_2 = { name: rifle, type: "Rifle", state: "active" };
+    if (rifle) {
+      ws.weapon_2 = { name: rifle, type: "Rifle", state: "active" };
+      // 长枪局带道具：烟雾、两颗闪光、燃烧（CT 燃烧弹 / T 燃烧瓶）
+      ws.weapon_3 = { name: "weapon_smokegrenade", type: "Grenade", state: "holstered", ammo_reserve: 1 };
+      ws.weapon_4 = { name: "weapon_flashbang", type: "Grenade", state: "holstered", ammo_reserve: 2 };
+      ws.weapon_5 = { name: ct ? "weapon_incgrenade" : "weapon_molotov", type: "Grenade", state: "holstered", ammo_reserve: 1 };
+    }
     return ws;
   };
 
