@@ -1,6 +1,8 @@
 # LiveCG systemd 服务（Linux）
 #
-# 安装：
+# 推荐用一键安装脚本：在项目根目录运行 deploy/install.sh（会按本机实际路径生成并安装这个服务）
+#
+# 手动安装：
 #   sudo useradd --system --home /opt/LiveCG livecg            # 运行服务的账号（已有可跳过）
 #   sudo mkdir -p /var/lib/livecg && sudo chown livecg /var/lib/livecg   # 数据目录（LIVECG_DATA_DIR）
 #   sudo cp deploy/livecg.service /etc/systemd/system/livecg.service

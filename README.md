@@ -18,6 +18,7 @@ pnpm start
 ```
 
 `pnpm start` 会先构建控制台（React，产物在 `apps/control/dist`）再启动服务。
+Linux 服务器上可以直接运行 `deploy/install.sh` 一键安装成 systemd 服务（详见脚本开头的说明）。
 配置写在项目根目录的 `.env`（参考 `.env.example`，主备部署参考 `deploy/`），启动时自动读取；已经设置的环境变量优先。
 部署到播出现场后，运行 `pnpm preflight` 自检配置、主备对端和 CasparCG 连通性。开发时用 `pnpm dev`：控制台改动自动重新构建，服务端改动自动重启（刷新浏览器即可看到）。
 
@@ -169,9 +170,9 @@ pnpm sim:scoreboard
 
 ## 接入 CS2
 
-1. 将 `integrations/cs2/gamestate_integration_livecg.cfg` 复制到 CS2 的 `game/csgo/cfg/` 目录（建议在 OB 观察者机器上）。
-2. 修改其中的 `uri` 指向 LiveCG 服务地址，`token` 与环境变量 `CS2_GSI_TOKEN` 保持一致。
-   多房间时 `uri` 写成 `http://<服务地址>:3000/gsi/cs2/<房间>`（房间卡片上可直接复制）；不带房间时进入默认房间。
+1. 在 LiveCG 服务器上运行 `pnpm cs2:cfg --room <房间> --url http://<服务地址>:3000`，生成 `cs2-cfg/gamestate_integration_livecg.cfg`（`uri`、`token` 已按 `.env` 填好；不带 `--room` 进入默认房间）。
+2. 把它复制到 CS2 的 `game/csgo/cfg/` 目录（建议在 OB 观察者机器上）。
+   也可以手动复制 `integrations/cs2/gamestate_integration_livecg.cfg`，把 `uri` 改为 `http://<服务地址>:3000/gsi/cs2/<房间>`（房间卡片上可直接复制）、`token` 与 `CS2_GSI_TOKEN` 一致。
 3. 重启游戏，比分、回合、选手数据会自动跟随比赛更新。
 4. 用播出单热键 1 / 2 / 3 上屏「比分条 / 选手血量经济 / 击杀信息」；回合结算默认在回合结束时自动上屏、下一回合开始自动下屏。
 5. 有播出延迟时，在控制台「CS2 数据 → 数据延迟」填入相同毫秒数（也可用环境变量 `CS2_DELAY_MS`）。
@@ -184,7 +185,7 @@ pnpm sim:scoreboard
 pnpm sim:cs2
 ```
 
-会按 4 倍速推送一整场模拟比赛（含换边、炸弹、经济）。常用参数：`--speed 1`（实时）、`--seed 7`（复现同一场）、`--rounds 6`、`--no-players`（模拟非 OB 客户端）、`--url http://<服务地址>:3000`。
+会按 4 倍速推送一整场模拟比赛（含换边、炸弹、经济）。常用参数：`--speed 1`（实时）、`--seed 7`（复现同一场）、`--rounds 6`、`--no-players`（模拟非 OB 客户端）、`--url http://<服务地址>:3000`、`--room <房间>`。
 
 ## 联调排查：录制与回放 CS2 数据
 

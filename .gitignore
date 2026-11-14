@@ -7,3 +7,5 @@ dist/
 .DS_Store
 coverage/
 data/runtime/
+# pnpm cs2:cfg 生成的 CS2 配置（含 token）
+cs2-cfg/

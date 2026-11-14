@@ -5,12 +5,9 @@
 
 ## A. 部署 LiveCG（服务器）
 
-- [ ] 装好 Node.js 22+ 与 pnpm；取代码后在项目根目录运行 `pnpm install && pnpm build`
-- [ ] `cp .env.example .env`，填写：`CS2_GSI_TOKEN`（随机字符串）、`LIVECG_ADMIN_PASSWORD`（至少 8 位）、`LIVECG_DATA_DIR=/var/lib/livecg`、联调期间 `LIVECG_CS2_CAPTURE=1`。`LIVECG_PEER_URL`、`LIVECG_AUTH` **留空**
-- [ ] 按 `deploy/livecg.service` 开头的步骤建服务账号和数据目录、安装并启动服务
-- [ ] 防火墙放行 TCP 3000（入）；本机能连到 CasparCG 的 TCP 5250
-- [ ] `pnpm preflight` 没有 ✗
-- [ ] 浏览器打开 `http://10.0.0.5:3000/` 用 `admin` 登录；给每位操作员建账号（导播）
+- [ ] 装好 Node.js 22+ 与 pnpm，取代码后在项目根目录用普通账号运行 `deploy/install.sh`（要用某个房间就加 `--room <房间>`）。它会构建、生成 `.env`（随机 token、数据目录 `/var/lib/livecg`、开启 CS2 录制）、装好并启动 systemd 服务、跑自检、生成 CS2 配置
+- [ ] 脚本最后的自检没有 ✗；按提示放行防火墙 TCP 3000（入）；本机能连到 CasparCG 的 TCP 5250
+- [ ] 浏览器打开 `http://10.0.0.5:3000/`，用脚本打印的初始密码以 `admin` 登录并改密码；给每位操作员建账号（导播）
 
 ## B. CasparCG 2.4
 
@@ -24,7 +21,8 @@
 
 ## C. CS2
 
-- [ ] OB 机：`integrations/cs2/gamestate_integration_livecg.cfg` 放进 `game/csgo/cfg/`；`uri` 改为 `http://10.0.0.5:3000/gsi/cs2/<房间>`（房间卡片上可复制），`token` 与 `CS2_GSI_TOKEN` 一致
+- [ ] 不开游戏先跑通：`pnpm sim:cs2 --room <房间>`，比分条、击杀信息等在 CasparCG 上正常
+- [ ] 把安装脚本生成的 `cs2-cfg/gamestate_integration_livecg.cfg` 拷到 OB 机 `game/csgo/cfg/`（地址和 token 已填好；换房间或地址用 `pnpm cs2:cfg --room <房间> --url http://10.0.0.5:3000` 重新生成）
 - [ ] 以**观察者身份**进比赛（否则选手数据为空）；控制台「CS2」页「最近数据」在几秒以内
 - [ ] 比分、回合号与游戏一致（重点看回合结束那一刻）
 - [ ] **半场换边后**主队仍在比分条左边、比分没对调；有加时则加时换边后同样正确
@@ -40,7 +38,7 @@
 
 ## E. 开播前 1 小时
 
-- [ ] `pnpm preflight` 没有 ✗；`<数据目录>/initial-admin-password.txt` 已删除
+- [ ] `pnpm preflight` 没有 ✗；`/var/lib/livecg/initial-admin-password.txt` 已删除
 - [ ] 不再需要录制时：`.env` 里 `LIVECG_CS2_CAPTURE` 改为空并重启服务
 - [ ] 备份 `<数据目录>`
 - [ ] CasparCG「已连接」；CS2「最近数据」在几秒以内

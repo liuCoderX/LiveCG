@@ -16,6 +16,7 @@
     "sim:cs2": "pnpm --filter @livecg/server sim:cs2",
     "sim:scoreboard": "pnpm --filter @livecg/server sim:scoreboard",
     "replay:cs2": "pnpm --filter @livecg/server replay:cs2",
-    "preflight": "pnpm --filter @livecg/server preflight"
+    "preflight": "pnpm --filter @livecg/server preflight",
+    "cs2:cfg": "pnpm --filter @livecg/server cs2:cfg"
   }
 }

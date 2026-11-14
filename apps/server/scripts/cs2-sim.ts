@@ -4,6 +4,7 @@
  *   pnpm sim:cs2                       # 默认 http://localhost:3000, 4 倍速
  *   pnpm sim:cs2 --speed 1 --seed 7    # 实时速度、指定随机种子
  *   pnpm sim:cs2 --url http://10.0.0.5:3000 --no-players
+ *   pnpm sim:cs2 --room final          # 推到指定房间（/gsi/cs2/final）
  */
 import { parseArgs } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -21,12 +22,13 @@ const { values } = parseArgs({
     speed: { type: "string", default: "4" },
     seed: { type: "string", default: String(Date.now() % 100000) },
     rounds: { type: "string", default: "24" },
+    room: { type: "string" },
     "no-players": { type: "boolean", default: false },
   },
 });
 
 const speed = Math.max(0.1, Number(values.speed));
-const endpoint = `${values.url}/gsi/cs2`;
+const endpoint = `${values.url.replace(/\/+$/, "")}/gsi/cs2${values.room ? `/${values.room}` : ""}`;
 console.log(`[cs2-sim] → ${endpoint}  speed x${speed}  seed ${values.seed}`);
 
 for (const { payload, waitMs } of simulateMatch({
@@ -37,7 +39,11 @@ for (const { payload, waitMs } of simulateMatch({
 })) {
   const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch((e) => e as Error);
   if (res instanceof Error || !res.ok) {
-    console.error(`[cs2-sim] POST failed: ${res instanceof Error ? res.message : res.status}`);
+    const hint = res instanceof Error ? res.message
+      : res.status === 401 ? "401：token 与服务端 CS2_GSI_TOKEN 不一致（--token 指定，或检查 .env）"
+      : res.status === 404 ? `404：房间 ${values.room ?? "default"} 不存在，先在控制台「房间」里建好`
+      : String(res.status);
+    console.error(`[cs2-sim] POST failed: ${hint}`);
     process.exit(1);
   }
   const ct = payload.map.team_ct;
