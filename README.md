@@ -3,7 +3,7 @@
 实时字幕图文系统：面向**电竞**（CS2 等）与**传统体育**直转播的在线包装（CG）平台。
 数据自动驱动 + 操作员手动控制，输出透明 HTML5 图文，可在 CasparCG / OBS / vMix 中作为 Browser Source 叠加。
 
-设计文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；上线前的真机联调按 [docs/DEPLOYMENT-CHECKLIST.md](docs/DEPLOYMENT-CHECKLIST.md) 逐项演练。
+设计文档见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；上线前的真机联调按 [docs/DEPLOYMENT-CHECKLIST.md](docs/DEPLOYMENT-CHECKLIST.md) 逐项演练（Linux 单机 + CasparCG 2.4 + CS2 可用一页精简版 [docs/QUICK-CHECKLIST-CS2.md](docs/QUICK-CHECKLIST-CS2.md)）。
 
 ## 快速开始
 
