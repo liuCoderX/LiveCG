@@ -51,46 +51,36 @@
   ```bash
   pnpm install && pnpm build
   ```
-- [ ] 准备环境变量（参考仓库里的 `.env.example`）。**注意：LiveCG 不会自动读取 `.env` 文件**，必须作为真正的环境变量传给进程——用下面的 systemd `EnvironmentFile`，或在启动前 `set -a; source .env; set +a`
+- [ ] 准备配置：主机复制 `deploy/primary.env.example`、备机复制 `deploy/backup.env.example` 为项目根目录的 `.env`，按文件里带 ★ 的项填写（不做主备就用 `.env.example`，主备三项留空）。服务启动时自动读取 `.env`；已经设置的环境变量（如 systemd `EnvironmentFile`）优先，空值视为没填
 
   | 变量 | 主机 A | 备机 B | 说明 |
   |---|---|---|---|
   | `PORT` | 3000 | 3000 | |
-  | `LIVECG_DATA_DIR` | 如 `/var/lib/livecg` | 同左 | 配置、账号、审计都在这里，要能备份 |
+  | `LIVECG_DATA_DIR` | 如 `/var/lib/livecg` | 同左 | 配置、账号、审计都在这里，要能备份；需提前建好并让服务账号可写 |
   | `CS2_GSI_TOKEN` | 自定 | 与 A 相同 | 必须与 CS2 cfg 里的 token 一致 |
   | `LIVECG_ADMIN_PASSWORD` | 首次启动用 | 与 A 相同 | 不填会随机生成并强制首次修改 |
   | `LIVECG_OUTPUT_TOKEN` | 可选 | 与 A 相同 | 设置后输出页地址必须带 `&token=` |
   | `LIVECG_PEER_URL` | `http://10.0.0.6:3000` | `http://10.0.0.5:3000` | 不做主备就不填 |
   | `LIVECG_REPLICATION_TOKEN` | 至少 16 位 | 与 A 相同 | 不足 16 位服务会拒绝启动 |
   | `LIVECG_ROLE` | `primary` | `backup` | |
+  | `LIVECG_CS2_CAPTURE` | 联调时填 `1` | 同左 | 录制 CS2 原始数据（见第 4 节），正式播出时留空 |
   | `LIVECG_AUTH` | **不要填** | **不要填** | 填 `off` 会关闭登录，只能在开发机上用 |
 
-- [ ] 配成系统服务，崩溃自动重启（Linux 示例；`pnpm` 路径用 `which pnpm` 确认，Windows 可用 NSSM 一类的服务管理工具）：
+- [ ] 运行自检，处理所有 ✗（⚠ 视情况处理）：
 
-  ```ini
-  # /etc/systemd/system/livecg.service
-  [Unit]
-  Description=LiveCG
-  After=network-online.target
-  Wants=network-online.target
-
-  [Service]
-  WorkingDirectory=/opt/LiveCG
-  EnvironmentFile=/etc/livecg.env
-  ExecStart=/usr/bin/pnpm --filter @livecg/server start
-  Restart=always
-  RestartSec=2
-  User=livecg
-
-  [Install]
-  WantedBy=multi-user.target
+  ```bash
+  pnpm preflight
   ```
 
-  （`pnpm start` 会先重新构建控制台；服务里直接启动服务端即可，代码更新后手动 `pnpm build` 一次。）
+  自检会检查 Node 版本、控制台是否已构建、配置是否齐全、主备对端能否连上且复制密钥一致、每个房间的 CasparCG 能否连上、「LiveCG 地址」是不是误填了 localhost、计分器端口冲突、本机中文字体等。服务开着或关着都可以运行；问题有 ✗ 时退出码为 1，可以放进开播前的检查脚本
+
+- [ ] 配成系统服务，崩溃自动重启：Linux 用仓库里的 `deploy/livecg.service`（文件开头有安装步骤；`pnpm` 路径用 `which pnpm` 确认），Windows 可用 NSSM 一类的服务管理工具
+- [ ] 代码更新后：`pnpm install && pnpm build`，再重启服务
 - [ ] 启动，确认日志里打印了 `server on http://localhost:3000` 和数据目录
 - [ ] 打开 `http://10.0.0.5:3000/`，用 `admin` 登录。随机生成的初始密码在服务日志里和 `<数据目录>/initial-admin-password.txt`；改完密码后**删除这个文件**
 - [ ] 在「账号与权限」给每位操作员建独立账号（导播 / 只读），需要时限定房间
 - [ ] 做主备时：两台都启动后，A 的控制台顶部显示绿色「主机」，B 显示黄色「备机 · 同步中」
+- [ ] 两台都配好后再跑一次 `pnpm preflight`：主备一节应显示对端在线、本机角色正确
 - [ ] **验收**：重启服务进程，登录状态、播出单、配置都还在
 
 ## 3. 输出接入
@@ -135,6 +125,7 @@
 - [ ] 把 `integrations/cs2/gamestate_integration_livecg.cfg` 复制到 OB 机的 `game/csgo/cfg/` 目录
 - [ ] 修改 `uri` 为 `http://10.0.0.5:3000/gsi/cs2/<房间标识>`（房间卡片上可复制），`token` 与 `CS2_GSI_TOKEN` 一致
 - [ ] 做主备时：再放一份 `gamestate_integration_livecg_backup.cfg`，`uri` 改成备机地址（备机接管前会忽略这些数据）
+- [ ] 联调期间打开录制：`.env` 里 `LIVECG_CS2_CAPTURE=1` 后重启服务。游戏推来的原始数据会存到 `<数据目录>/captures/cs2-<房间>-<日期>.jsonl`（已去掉 token），遇到问题时把这个文件发给开发，开发端用 `pnpm replay:cs2 <文件>` 原样回放复现。文件增长较快（每小时几十到几百 MB），**正式播出前关掉**
 - [ ] 重启游戏，以**观察者 / OB 身份**进入比赛（只有观察者客户端才有全部选手的数据）
 - [ ] 控制台「CS2」页：「最近数据」在几秒以内，地图、回合、阶段正确
 - [ ] **验收**：
@@ -198,6 +189,8 @@
 
 ## 9. 正式播出当天（开播前 1 小时）
 
+- [ ] 运行 `pnpm preflight`，没有 ✗
+- [ ] `LIVECG_CS2_CAPTURE` 已关闭（除非确定要录）
 - [ ] 备份 `<数据目录>`（含账号，注意妥善保管）
 - [ ] 主机绿色「主机」、备机黄色「备机 · 同步中」
 - [ ] 顶栏 CasparCG「已连接」；「设备」页计分器「接收中」；「CS2」页「最近数据」在几秒以内
@@ -228,4 +221,12 @@
 | 2 | | | | | | |
 | 3 | | | | | | |
 
-反馈问题时请一并附上：LiveCG 服务日志（systemd 用 `journalctl -u livecg`）、当天的 `<数据目录>/audit/YYYY-MM-DD.jsonl`、出问题时的 PGM 截图或录像、设备型号与版本。
+反馈问题时请一并附上：
+
+- `pnpm preflight` 的完整输出
+- LiveCG 服务日志（systemd 用 `journalctl -u livecg --since "2 hours ago"`）
+- 当天的 `<数据目录>/audit/YYYY-MM-DD.jsonl`
+- CS2 相关问题：`<数据目录>/captures/` 里对应的录制文件，并写明大概在第几回合、几点几分出的问题
+- 出问题时的 PGM 截图或录像、设备型号与版本
+
+注意：`<数据目录>` 里的 `users.json`、`sessions.json` 含账号和登录信息（虽然是哈希），**不要**一起发出去。

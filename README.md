@@ -17,7 +17,9 @@ pnpm install
 pnpm start
 ```
 
-`pnpm start` 会先构建控制台（React，产物在 `apps/control/dist`）再启动服务。开发时用 `pnpm dev`：控制台改动自动重新构建，服务端改动自动重启（刷新浏览器即可看到）。
+`pnpm start` 会先构建控制台（React，产物在 `apps/control/dist`）再启动服务。
+配置写在项目根目录的 `.env`（参考 `.env.example`，主备部署参考 `deploy/`），启动时自动读取；已经设置的环境变量优先。
+部署到播出现场后，运行 `pnpm preflight` 自检配置、主备对端和 CasparCG 连通性。开发时用 `pnpm dev`：控制台改动自动重新构建，服务端改动自动重启（刷新浏览器即可看到）。
 
 - 房间列表：http://localhost:3000/ （自动跳转到 `/control/rooms.html`）
 - 控制台：http://localhost:3000/control/?room=default
@@ -183,6 +185,17 @@ pnpm sim:cs2
 ```
 
 会按 4 倍速推送一整场模拟比赛（含换边、炸弹、经济）。常用参数：`--speed 1`（实时）、`--seed 7`（复现同一场）、`--rounds 6`、`--no-players`（模拟非 OB 客户端）、`--url http://<服务地址>:3000`。
+
+## 联调排查：录制与回放 CS2 数据
+
+`.env` 里设置 `LIVECG_CS2_CAPTURE=1` 后，服务会把游戏推来的原始数据（去掉 token）按房间、按天存到 `<数据目录>/captures/`。
+拿到录制文件后可以在任意一台 LiveCG 上原样回放（相对路径从项目根目录算）：
+
+```bash
+pnpm replay:cs2 data/runtime/captures/cs2-default-2026-11-20.jsonl --speed 4 --room test
+```
+
+`--from 1800` 从录制开始后第 30 分钟回放；比赛暂停等长空档默认压缩到 5 秒（`--max-gap`）。
 
 ## 测试
 

@@ -192,6 +192,10 @@ LiveCG/
 │   │   ├── src/persist.ts            配置/播出单持久化（每房间一个文件）
 │   │   ├── src/sports/               传统体育：时钟、赛制预设、控制器、计分器 UDP 输入
 │   │   ├── scripts/scoreboard-sim.ts 计分器模拟器（UDP）
+│   │   ├── scripts/preflight.ts      开播前自检（pnpm preflight）
+│   │   ├── scripts/cs2-replay.ts     回放录制的 CS2 原始数据（pnpm replay:cs2）
+│   │   ├── src/capture.ts            CS2 原始数据录制（LIVECG_CS2_CAPTURE=1）
+│   │   ├── src/env.ts                启动时读取 .env
 │   │   ├── scripts/cs2-sim.ts        模拟器命令行（推送到服务端）
 │   │   └── test/                     node:test 回归测试
 │   ├── graphics/themes/  主题包（JSON：一组 --lcg-* 变量）
@@ -201,6 +205,7 @@ LiveCG/
 │   └── shared/        共享类型与消息协议
 ├── integrations/
 │   └── cs2/           CS2 GSI 配置文件
+├── deploy/            systemd 服务文件、主机 / 备机配置模板
 └── docs/              设计文档（ARCHITECTURE.md、TEMPLATES.md 模板开发规范）
 ```
 
