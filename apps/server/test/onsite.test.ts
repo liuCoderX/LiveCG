@@ -96,3 +96,23 @@ test("capture is off unless enabled", async () => {
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("cs2:cfg fills uri and token into the repo template and rejects common mistakes", async () => {
+  const { renderCs2Cfg, checkCs2CfgOptions } = await import("../src/cs2-cfg.ts");
+  const template = readFileSync(resolve(appsDir, "..", "integrations/cs2/gamestate_integration_livecg.cfg"), "utf8");
+  const out = renderCs2Cfg(template, { url: "http://10.0.0.5:3000/", room: "final", token: "abc123" });
+  assert.match(out, /"uri"\s+"http:\/\/10\.0\.0\.5:3000\/gsi\/cs2\/final"/);
+  assert.match(out, /"token"\s+"abc123"/);
+  assert.ok(!out.includes("change-me") && !out.includes("127.0.0.1"));
+  assert.equal(out.replace(/"uri".*\n/, "").replace(/"token".*\n/, ""), template.replace(/"uri".*\n/, "").replace(/"token".*\n/, ""), "everything else unchanged");
+  assert.match(renderCs2Cfg(template, { url: "http://10.0.0.5:3000", token: "t" }), /"uri"\s+"http:\/\/10\.0\.0\.5:3000\/gsi\/cs2"/);
+
+  const good = checkCs2CfgOptions({ url: "http://10.0.0.5:3000", room: "final", token: "abc" });
+  assert.deepEqual(good, { errors: [], warns: [] });
+  assert.equal(checkCs2CfgOptions({ url: "http://10.0.0.5:3000", token: "change-me" }).errors.length, 1);
+  assert.equal(checkCs2CfgOptions({ url: "http://10.0.0.5:3000", token: "" }).errors.length, 1);
+  assert.equal(checkCs2CfgOptions({ url: "https://10.0.0.5:3000", token: "a" }).errors.length, 1);
+  assert.equal(checkCs2CfgOptions({ url: "http://10.0.0.5:3000/gsi/cs2", token: "a" }).errors.length, 1);
+  assert.equal(checkCs2CfgOptions({ url: "http://10.0.0.5:3000", room: "Final!", token: "a" }).errors.length, 1);
+  assert.equal(checkCs2CfgOptions({ url: "http://localhost:3000", token: "a" }).warns.length, 1);
+});

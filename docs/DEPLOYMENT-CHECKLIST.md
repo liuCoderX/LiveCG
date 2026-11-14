@@ -76,7 +76,7 @@
 
   自检会检查 Node 版本、控制台是否已构建、配置是否齐全、主备对端能否连上且复制密钥一致、每个房间的 CasparCG 能否连上、「LiveCG 地址」是不是误填了 localhost、计分器端口冲突、本机中文字体等。服务开着或关着都可以运行；问题有 ✗ 时退出码为 1，可以放进开播前的检查脚本
 
-- [ ] 配成系统服务，崩溃自动重启：Linux 用仓库里的 `deploy/livecg.service`（文件开头有安装步骤；`pnpm` 路径用 `which pnpm` 确认），Windows 可用 NSSM 一类的服务管理工具
+- [ ] 配成系统服务，崩溃自动重启：Linux 单机可直接运行 `deploy/install.sh`（构建、生成 `.env`、建数据目录、安装并启动服务、自检、生成 CS2 配置一步完成，可重复运行，已有的 `.env` 不会被覆盖）；也可按 `deploy/livecg.service` 开头的步骤手动安装（`pnpm` 路径用 `which pnpm` 确认）。Windows 可用 NSSM 一类的服务管理工具
 - [ ] 代码更新后：`pnpm install && pnpm build`，再重启服务
 - [ ] 启动，确认日志里打印了 `server on http://localhost:3000` 和数据目录
 - [ ] 打开 `http://10.0.0.5:3000/`，用 `admin` 登录。随机生成的初始密码在服务日志里和 `<数据目录>/initial-admin-password.txt`；改完密码后**删除这个文件**
@@ -125,8 +125,7 @@
 
 ## 4. CS2 数据接入
 
-- [ ] 把 `integrations/cs2/gamestate_integration_livecg.cfg` 复制到 OB 机的 `game/csgo/cfg/` 目录
-- [ ] 修改 `uri` 为 `http://10.0.0.5:3000/gsi/cs2/<房间标识>`（房间卡片上可复制），`token` 与 `CS2_GSI_TOKEN` 一致
+- [ ] 在 LiveCG 服务器上生成配置：`pnpm cs2:cfg --room <房间标识> --url http://10.0.0.5:3000`，`uri` 和 `token`（取自 `.env`）自动填好，文件在 `cs2-cfg/` 下；把它复制到 OB 机的 `game/csgo/cfg/` 目录。也可以手动复制 `integrations/cs2/gamestate_integration_livecg.cfg`，把 `uri` 改为 `http://10.0.0.5:3000/gsi/cs2/<房间标识>`（房间卡片上可复制）、`token` 改成与 `CS2_GSI_TOKEN` 一致
 - [ ] 做主备时：再放一份 `gamestate_integration_livecg_backup.cfg`，`uri` 改成备机地址（备机接管前会忽略这些数据）
 - [ ] 联调期间打开录制：`.env` 里 `LIVECG_CS2_CAPTURE=1` 后重启服务。游戏推来的原始数据会存到 `<数据目录>/captures/cs2-<房间>-<日期>.jsonl`（已去掉 token），遇到问题时把这个文件发给开发，开发端用 `pnpm replay:cs2 <文件>` 原样回放复现。文件增长较快（每小时几十到几百 MB），**正式播出前关掉**
 - [ ] 重启游戏，以**观察者 / OB 身份**进入比赛（只有观察者客户端才有全部选手的数据）
