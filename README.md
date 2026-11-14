@@ -129,7 +129,7 @@ curl -X POST http://localhost:3000/api/rooms/default/command -H "Authorization: 
 3. 设置每路输出的通道 / 层：默认 PGM → 通道 1 层 20；PVW → 通道 2 层 20（默认关闭）。
 4. 保存后 LiveCG 会发送 `PLAY 1-20 [HTML] "…/graphics/?room=<房间>&channel=pgm"`，之后的上下屏全部在页面内完成；CasparCG 重启后会自动重新加载。
 
-> CasparCG 较老版本内置的 Chromium 可能不支持输出页使用的现代 JS 语法，建议 2.4 或更新版本，上线前在实际版本上完整验证。模板开发见 [docs/TEMPLATES.md](docs/TEMPLATES.md)。
+> 需要 CasparCG 2.4 或更新版本：输出页需要 Chromium 87 以上，CasparCG 2.4 内置 CEF 117；更早的版本（如 2.2 的 Chromium 63）会整页空白。上线前在实际播出机上把所有模板过一遍。模板开发见 [docs/TEMPLATES.md](docs/TEMPLATES.md)。
 
 ## 传统体育（足球 / 篮球）
 
