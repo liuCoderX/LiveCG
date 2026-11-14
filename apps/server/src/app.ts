@@ -12,6 +12,7 @@ import { announceInitialPassword, AuthError, LoginLimiter, publicUser, SessionSt
 import { ANONYMOUS, AUTH_DISABLED, atLeast, canAccessRoom, denyReason, type Principal } from "./auth/permissions.ts";
 import { AuditLog } from "./auth/audit.ts";
 import { Cs2Capture } from "./capture.ts";
+import { scanIconPack } from "./icons.ts";
 
 export interface AppOptions {
   /** apps/ 目录（静态文件根） */
@@ -117,6 +118,9 @@ export function createApp(opts: AppOptions) {
     // 控制台是 React 构建产物（pnpm build 生成）
     "/control/": join(opts.appsDir, "control", "dist"),
   };
+
+  /** CS2 图标包目录（从游戏文件导出的图标，不随代码分发） */
+  const cs2IconDir = opts.dataDir ? join(opts.dataDir, "icons", "cs2") : undefined;
 
   // ───────────── 账号 / 会话 / 审计 ─────────────
   const users = new UserStore(opts.dataDir ? join(opts.dataDir, "users.json") : undefined);
@@ -333,6 +337,30 @@ export function createApp(opts: AppOptions) {
         // 默认主题排第一
         themes.sort((a, b) => (a.id === "default" ? -1 : b.id === "default" ? 1 : 0));
         return json(res, 200, themes);
+      }
+      // CS2 图标包：输出页打开时取一次清单（公开，和模板一样不需要登录）
+      if (method === "GET" && url === "/api/icons") {
+        return json(res, 200, { cs2: cs2IconDir ? await scanIconPack(cs2IconDir) : {} });
+      }
+      const iconMatch = /^\/icons\/cs2\/([^/]+)$/.exec(url);
+      if (method === "GET" && iconMatch) {
+        // 只发清单里有的文件（文件名来自目录扫描，不拼接用户输入，杜绝路径穿越）
+        const pack = cs2IconDir ? await scanIconPack(cs2IconDir) : {};
+        const want = decodeURIComponent(iconMatch[1]);
+        const hit = Object.values(pack).find((i) => i.file === want);
+        if (!hit || !cs2IconDir) return json(res, 404, { error: "没有这个图标" });
+        const svg = hit.file.toLowerCase().endsWith(".svg");
+        res.writeHead(200, {
+          "content-type": svg ? "image/svg+xml" : "image/png",
+          "cache-control": "no-cache",
+          // 图标用作 CSS mask（CORS 请求）；主备切换后可能从对端加载
+          "access-control-allow-origin": "*",
+          // SVG 是文档格式：禁止其中的脚本和外部资源
+          ...(svg ? { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'" } : {}),
+          "x-content-type-options": "nosniff",
+        });
+        res.end(await readFile(join(cs2IconDir, hit.file)));
+        return;
       }
       if (method === "GET" && url === "/api/templates") {
         const files = await readdir(join(staticRoots["/graphics/"], "templates"));

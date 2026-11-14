@@ -68,6 +68,7 @@ export default {
 2. **动画用 `animate()`**（Web Animations API 封装，`util.js`）。它会先取消该元素上一轮脚本动画，避免 `fill` 叠加；CSS 关键帧动画（如炸弹闪烁）不受影响。
    如果元素本身有 `transform`（如居中用的 `translateX(-50%)`），关键帧里要带上它。
 3. **不要依赖系统字体里的符号/emoji。** 图标用 `util.js` 的 `ICON`（内联 SVG），播出机字体千差万别。
+   CS2 的武器、道具和状态图标用 `icons.js` 的 `weaponIcon(name)` / `statusIcon(key)`：优先用图标包里的游戏原版图标（见 [ICONS-CS2.md](ICONS-CS2.md)），没有时武器回退为文字、其它回退为内置图标。图标高度为 `1em`、颜色为 `currentColor`，用 `font-size` 和 `color` 控制。
 4. **画布固定 1920×1080、透明背景。** 重要信息放在字幕安全区内（输出页加 `?safe` 可看参考线）。
 5. **用户输入一律转义**（`esc()` 或 `textContent`），播出单字段可能来自任何操作员。
 6. **`z`** 约定：比分条 10、选手条 20、击杀 30、结算 40、人名条 50、比赛事件 55、字幕 60、全屏类（首发名单等）80。

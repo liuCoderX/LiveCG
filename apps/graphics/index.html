@@ -19,6 +19,7 @@
 <script type="module">
   import { connect } from "./lib/livecg-client.js";
   import { animate } from "./lib/util.js";
+  import { loadIconPack } from "./lib/icons.js";
 
   /**
    * URL 参数：
@@ -204,6 +205,9 @@
     e.desired = desired;
     reconcile(e);
   };
+
+  // CS2 图标包（游戏原版图标）：第一次渲染前取清单，最多等 2 秒；取不到就用内置图标 / 文字
+  await loadIconPack(templateBases.map((b) => new URL("/", b).href));
 
   connect({
     role: "graphics",

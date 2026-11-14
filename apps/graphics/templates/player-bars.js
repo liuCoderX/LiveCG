@@ -1,13 +1,10 @@
 // CS2 选手血量 / 经济条：主队在左下，客队在右下
 // 按 steamid 增量更新 DOM，血条宽度走 CSS 过渡，不会被 10Hz 数据打断
-import { animate, esc, ICON, money, setStyle, setText, teamColor } from "../lib/util.js";
+import { animate, esc, money, setStyle, setText, teamColor } from "../lib/util.js";
+import { statusIcon, weaponIcon } from "../lib/icons.js";
 
-const WEAPON_NAME = {
-  ak47: "AK-47", m4a1_silencer: "M4A1-S", m4a1: "M4A4", awp: "AWP", famas: "FAMAS", galilar: "Galil", aug: "AUG", sg556: "SG 553",
-  ssg08: "SSG 08", mp9: "MP9", mac10: "MAC-10", ump45: "UMP-45", p90: "P90", deagle: "Deagle", usp_silencer: "USP-S",
-  glock: "Glock", p250: "P250", fiveseven: "Five-SeveN", tec9: "Tec-9", cz75a: "CZ75", hkp2000: "P2000",
-};
-export const weaponLabel = (w) => (w ? WEAPON_NAME[w] ?? w.toUpperCase() : "");
+// 兼容旧引用
+export { weaponLabel } from "../lib/icons.js";
 
 const slide = (el, dir) => {
   const rows = (side) => el.querySelectorAll(`.pb-col.${side} > *`);
@@ -29,7 +26,7 @@ export default {
     .pb-col.away { right: 40px; }
     .pb-head { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 12px; border-radius: var(--lcg-radius, 0); background: var(--c); color: #111; font-weight: 800; font-size: 18px; }
     .pb-head small { font-size: 14px; font-weight: 700; opacity: .8; }
-    .pb-row { position: relative; display: grid; grid-template-columns: 26px 1fr auto 52px; align-items: center; gap: 8px; height: 46px; padding: 0 10px; background: var(--lcg-panel, rgba(12,14,20,.86)); border-radius: var(--lcg-radius, 0); overflow: hidden; transition: opacity .3s; }
+    .pb-row { position: relative; display: grid; grid-template-columns: 26px 1fr auto 52px; align-items: center; gap: 8px; height: 50px; padding: 0 10px 3px; background: var(--lcg-panel, rgba(12,14,20,.86)); border-radius: var(--lcg-radius, 0); overflow: hidden; transition: opacity .3s; }
     .pb-col.away .pb-row { grid-template-columns: 52px auto 1fr 26px; text-align: right; }
     .pb-col.away .pb-row > :nth-child(1) { order: 4; } .pb-col.away .pb-row > :nth-child(2) { order: 3; }
     .pb-col.away .pb-row > :nth-child(3) { order: 2; } .pb-col.away .pb-row > :nth-child(4) { order: 1; }
@@ -37,13 +34,15 @@ export default {
     .pb-col.away .pb-hpbar { left: auto; right: 0; }
     .pb-row.low .pb-hpbar { background: var(--lcg-danger, #e5484d); }
     .pb-slot { font-size: 14px; color: var(--lcg-muted, #889); font-variant-numeric: tabular-nums; }
-    .pb-name { font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pb-sub { display: block; font-size: 12px; font-weight: 500; color: var(--lcg-muted, #aab); }
+    .pb-name { font-size: 20px; line-height: 1.15; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pb-sub { display: flex; align-items: center; gap: 6px; height: 18px; margin-top: 2px; font-size: 18px; line-height: 1; color: var(--lcg-muted, #ccd); }
+    .pb-col.away .pb-sub { justify-content: flex-end; }
+    .pb-gren { display: inline-flex; gap: 2px; font-size: 13px; opacity: .85; }
     .pb-stats { font-size: 13px; color: var(--lcg-muted, #ccd); font-variant-numeric: tabular-nums; line-height: 1.25; }
     .pb-money { color: var(--lcg-positive, #8fd18f); }
     .pb-hp { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .pb-row.dead { opacity: .45; }
-    .pb-row.dead .pb-hp { font-size: 14px; color: var(--lcg-danger, #e5484d); }
+    .pb-row.dead .pb-hp { display: grid; place-items: center; font-size: 22px; color: var(--lcg-danger, #e5484d); }
     .pb-row.observed { box-shadow: inset 0 0 0 2px var(--lcg-text, #fff); }
     .pb-icons { display: inline-flex; gap: 3px; vertical-align: middle; color: var(--lcg-muted, #ccd); font-size: 14px; margin: 0 6px; }
     .pb-icons .c4 { color: var(--lcg-danger, #e5484d); display: inline-flex; }
@@ -89,10 +88,18 @@ export default {
       setText(row.querySelector(".pb-slot"), p.slot ?? "");
       setText(row.querySelector(".n"), p.name);
       const icons = row.querySelector(".pb-icons");
-      const iconHtml = p.alive ? [p.armor > 0 ? (p.helmet ? ICON.helmet : ICON.armor) : "", p.defuser ? ICON.kit : "", p.hasBomb ? `<b class="c4">${ICON.c4}</b>` : ""].join("") : "";
+      const iconHtml = p.alive ? [p.armor > 0 ? statusIcon(p.helmet ? "armor_helmet" : "armor") : "", p.defuser ? statusIcon("defuser") : "", p.hasBomb ? `<b class="c4">${statusIcon("c4")}</b>` : ""].join("") : "";
       if (icons.innerHTML !== iconHtml) icons.innerHTML = iconHtml;
-      setText(row.querySelector(".pb-sub"), p.alive ? weaponLabel(p.weapon) : "");
-      setText(row.querySelector(".pb-hp"), p.alive ? p.hp : "阵亡");
+      // 第二行：主武器 + 道具；客队一侧镜像排列（道具在外侧）
+      const sub = row.querySelector(".pb-sub");
+      const gren = (p.grenades ?? []).map((g) => statusIcon(g)).join("");
+      const parts = p.alive ? [weaponIcon(p.weapon), gren ? `<span class="pb-gren">${gren}</span>` : ""] : [];
+      const subHtml = (p.team === "away" ? parts.reverse() : parts).join("");
+      if (sub.innerHTML !== subHtml) sub.innerHTML = subHtml;
+      // 阵亡：骷髅图标代替血量
+      const hp = row.querySelector(".pb-hp");
+      if (p.alive) setText(hp, p.hp);
+      else if (!hp.querySelector("svg, .lcg-ico")) hp.innerHTML = statusIcon("elimination");
       const stats = row.querySelector(".pb-stats");
       const html = `<span class="pb-money">${money(p.money)}</span><br>${p.kills}/${p.deaths}/${p.assists}${p.adr ? ` · ${p.adr}` : ""}`;
       if (stats.innerHTML !== html) stats.innerHTML = html;

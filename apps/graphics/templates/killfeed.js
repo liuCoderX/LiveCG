@@ -1,6 +1,6 @@
 // 击杀信息：右上角，新条目滑入，按本机接收时间 7 秒后淡出
-import { esc, ICON, SIDE_COLOR } from "../lib/util.js";
-import { weaponLabel } from "./player-bars.js";
+import { esc, SIDE_COLOR } from "../lib/util.js";
+import { statusIcon, weaponIcon } from "../lib/icons.js";
 
 const TTL = 7000;
 
@@ -13,8 +13,8 @@ export default {
       animation: kf-in .25s ease-out; transition: opacity .5s, transform .5s; }
     .kf-item.hs { box-shadow: inset 0 0 0 2px var(--lcg-danger, #e5484d); }
     .kf-item.out { opacity: 0; transform: translateX(30px); }
-    .kf-w { font-size: 14px; color: var(--lcg-muted, #ccd); font-weight: 500; }
-    .kf-hs { color: var(--lcg-danger, #e5484d); font-size: 14px; }
+    .kf-w { display: inline-flex; align-items: center; font-size: 24px; line-height: 1; color: var(--lcg-text, #fff); }
+    .kf-hs { display: inline-flex; align-items: center; font-size: 20px; line-height: 1; color: var(--lcg-text, #fff); margin-left: -4px; }
     @keyframes kf-in { from { opacity: 0; transform: translateX(40px); } }
   `,
 
@@ -31,7 +31,8 @@ export default {
       item.className = `kf-item${k.headshot ? " hs" : ""}`;
       item.dataset.id = k.id;
       item.dataset.at = String(Date.now());
-      item.innerHTML = `${who(k.killer)}<span class="kf-w">${k.killer ? esc(weaponLabel(k.weapon)) : ICON.elimination}</span>${k.headshot ? '<span class="kf-hs">爆头</span>' : ""}${who(k.victim)}`;
+      // 击杀者 · 武器 · 爆头 · 被杀者；没有击杀者（自杀、炸弹、坠落）只显示骷髅
+      item.innerHTML = `${who(k.killer)}<span class="kf-w">${k.killer ? weaponIcon(k.weapon) : statusIcon("elimination")}</span>${k.headshot ? `<span class="kf-hs">${statusIcon("headshot")}</span>` : ""}${who(k.victim)}`;
       box.appendChild(item);
     }
   },
