@@ -92,7 +92,8 @@
 
 ### 3.2 CasparCG
 
-- [ ] 确认 CasparCG 版本。较老版本内置的浏览器内核可能跑不了输出页（会表现为整页空白），建议 2.4 或更新
+- [ ] 确认 CasparCG 版本为 **2.4 或更新**。输出页需要 Chromium 87 以上的浏览器内核：CasparCG 2.4.0 起内置 CEF 117，满足要求；2.2 内置的是 Chromium 63，输出页会整页空白
+- [ ] 如果画面渲染异常（黑屏、闪烁、掉帧），可以尝试 CasparCG 2.4 配置里的 angle backend 设置，官方说明是「最合适的后端因模板和机器而异」
 - [ ] CasparCG 的输出 consumer（如 DeckLink）按切换台要求配置 Fill + Key（外键）
 - [ ] 控制台「设备 → CasparCG」（需管理员）：勾选启用，填 CasparCG 地址、端口 5250；**「LiveCG 地址」填 CasparCG 那台机器能访问到的地址**（如 `http://10.0.0.5:3000`，不能填 localhost）
 - [ ] 设置输出：PGM 默认通道 1 层 20；需要 PVW 监看时启用 PVW 那一路（默认通道 2 层 20）

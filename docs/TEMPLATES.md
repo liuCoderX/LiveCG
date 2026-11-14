@@ -108,5 +108,12 @@ export default {
 ## 兼容性
 
 输出页使用现代浏览器特性（ES Module、可选链 `?.`、Web Animations API）。OBS、vMix、Chrome 均可直接使用。
-CasparCG 的 HTML producer 内置 Chromium（CEF），**较老版本的 CasparCG 内置的 Chromium 版本较旧，可能不支持以上语法**；
-建议使用 CasparCG 2.4 或更新版本，并在上线前用实际播出机版本完整验证一遍所有模板。
+CasparCG 的 HTML producer 内置 Chromium（CEF）。输出页和模板用到的最新特性（CSS `inset`、`replaceChildren`、Web Animations API 的 `finished` / `getAnimations`、可选链）需要 **Chromium 87 以上**：
+
+| CasparCG | 内置内核（据官方 CHANGELOG） | 能否运行 |
+|---|---|---|
+| 2.2 | Chromium 63 | 不能（整页空白） |
+| 2.4.0 起 | CEF 117 | 能 |
+| 2.5.0 起 | CEF 142 | 能 |
+
+新增模板时不要用 Chromium 117 之后才有的特性；上线前仍要在实际播出机上把所有模板过一遍。
