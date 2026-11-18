@@ -85,3 +85,28 @@ test("CS2 adapter reports grenades in the usual order, two flashbangs counted tw
     assert.deepEqual(p.grenades, ["flashbang", "flashbang", "smokegrenade", p.side === "CT" ? "incgrenade" : "molotov"]);
   }
 });
+
+test("icons:import picks known names from an export tree (svg first, equipment folder first)", async () => {
+  const { planIconImport } = await import("../src/icons.ts");
+  const plan = planIconImport([
+    "out/panorama/images/icons/equipment/ak47.svg",
+    "out/panorama/images/icons/other/ak47.svg",
+    "out/panorama/images/icons/equipment/weapon_AWP.svg",
+    "out/panorama/images/hud/flashbang_png.png",
+    "out/panorama/images/icons/equipment/flashbang.svg",
+    "out/panorama/images/icons/equipment/m4a1_silencer.png",
+    "out/panorama/images/icons/equipment/weapon_shield.svg",
+    "out/panorama/images/readme.txt",
+  ]);
+  assert.deepEqual(Object.fromEntries(plan.picked), {
+    ak47: "out/panorama/images/icons/equipment/ak47.svg",
+    awp: "out/panorama/images/icons/equipment/weapon_AWP.svg",
+    flashbang: "out/panorama/images/icons/equipment/flashbang.svg",
+    m4a1_silencer: "out/panorama/images/icons/equipment/m4a1_silencer.png",
+  });
+  assert.deepEqual(plan.duplicates, ["ak47", "flashbang"]);
+  assert.deepEqual(plan.unknown, ["shield"]);
+  // 只有具体刀型时，拿来当通用刀图标
+  assert.equal(planIconImport(["a/weapon_knife_karambit.svg", "a/weapon_bayonet.svg"]).picked.get("knife"), "a/weapon_bayonet.svg");
+  assert.equal(planIconImport(["a/knife.svg", "a/weapon_knife_karambit.svg"]).picked.get("knife"), "a/knife.svg");
+});

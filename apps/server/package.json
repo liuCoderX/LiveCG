@@ -12,7 +12,8 @@
     "sim:scoreboard": "tsx scripts/scoreboard-sim.ts",
     "replay:cs2": "tsx scripts/cs2-replay.ts",
     "preflight": "tsx scripts/preflight.ts",
-    "cs2:cfg": "tsx scripts/cs2-cfg.ts"
+    "cs2:cfg": "tsx scripts/cs2-cfg.ts",
+    "icons:import": "tsx scripts/icons-import.ts"
   },
   "dependencies": {
     "@livecg/shared": "workspace:*",
