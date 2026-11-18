@@ -17,7 +17,7 @@
 - [ ] 切换台上 Key 干净：没有黑边 / 白边，半透明面板透出底下画面
 - [ ] 重启 CasparCG，LiveCG 自动重连并重新加载画面
 - [ ] 逐个上屏 / 下屏，入场出场流畅、中文正常、在安全区内：比分条 · 选手血量/经济 · 击杀信息 · 回合结算 · 人名条 · 实时字幕
-- [ ] 游戏原版图标：按 `docs/ICONS-CS2.md` 从 CS2 导出放到 `/var/lib/livecg/icons/cs2/`，`pnpm preflight` 不缺常用图标；CasparCG 重连后武器、道具、爆头、C4 都是原版图标
+- [ ] 游戏原版图标：按 `docs/ICONS-CS2.md` 从 CS2 导出，`pnpm icons:import <导出目录>` 导入，`pnpm preflight` 不缺常用图标；CasparCG 重连后武器、道具、爆头、C4 都是原版图标
 - [ ] 画面黑屏、闪烁、掉帧时：试 CasparCG 2.4 配置里的 angle backend 设置
 
 ## C. CS2

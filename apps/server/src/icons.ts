@@ -106,3 +106,41 @@ export const CORE_ICON_NAMES: string[] = [
   ...CS2_ICON_NAMES.grenades,
   "headshot",
 ];
+
+/** 所有认识的图标名 */
+export const KNOWN_ICON_NAMES = new Set<string>(Object.values(CS2_ICON_NAMES).flat());
+
+/**
+ * 导入前整理：从导出目录里的文件路径挑出认识的图标。
+ * - 文件名按 iconNameOf 规则识别，另外去掉贴图导出常见的 _png 后缀（ak47_png.png → ak47）
+ * - 同名多个文件时：SVG 优先；同为 SVG/PNG 时路径里带 equipment 的优先，再按路径排序取第一个
+ */
+export function planIconImport(paths: string[]): { picked: Map<string, string>; unknown: string[]; duplicates: string[] } {
+  const groups = new Map<string, string[]>();
+  const unknown: string[] = [];
+  const knifeVariants: string[] = [];
+  for (const p of paths) {
+    const base = p.split(/[\\/]/).pop() ?? p;
+    const ext = extname(base).toLowerCase();
+    if (!(ext in EXT_RANK)) continue;
+    let name = iconNameOf(base);
+    if (name) name = name.replace(/_png$/, "");
+    if (!name || !KNOWN_ICON_NAMES.has(name)) {
+      if (name && /^(knife|bayonet)/.test(name)) knifeVariants.push(p);
+      else if (name) unknown.push(name);
+      continue;
+    }
+    groups.set(name, [...(groups.get(name) ?? []), p]);
+  }
+  // 没有通用的 knife 图标时，拿一个具体刀型（如 knife_karambit）当所有刀的图标
+  if (!groups.has("knife") && knifeVariants.length) groups.set("knife", [knifeVariants.sort()[0]]);
+  const score = (p: string) => EXT_RANK[extname(p).toLowerCase()] * 10 + (/equipment/i.test(p) ? 1 : 0);
+  const picked = new Map<string, string>();
+  const duplicates: string[] = [];
+  for (const [name, list] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+    const sorted = [...list].sort((a, b) => score(b) - score(a) || a.localeCompare(b));
+    picked.set(name, sorted[0]);
+    if (list.length > 1) duplicates.push(name);
+  }
+  return { picked, unknown: [...new Set(unknown)].sort(), duplicates };
+}

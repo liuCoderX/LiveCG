@@ -177,7 +177,7 @@ section("CS2 图标包（游戏原版图标）");
   const pack = await scanIconPack(iconDir);
   const have = Object.keys(pack);
   if (!have.length) {
-    warn(`${iconDir} 里没有图标：武器显示为文字、其它用内置图标。导出方法见 docs/ICONS-CS2.md`);
+    warn(`${iconDir} 里没有图标：武器显示为文字、其它用内置图标。从游戏导出后用 pnpm icons:import <导出目录> 导入，步骤见 docs/ICONS-CS2.md`);
   } else {
     const missing = CORE_ICON_NAMES.filter((n) => !pack[n]);
     ok(`${have.length} 个图标`);
